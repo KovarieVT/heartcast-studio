@@ -183,7 +183,7 @@ jobs:
           $text = if (Test-Path $log) { Get-Content $log -Raw } else { "" }
           if ($text -notmatch 'Totals: \d+ passed, 0 failed') { throw "Windows engine test failed or crashed — see stack trace and log above" }
 
-      - name: Sign app binaries (Azure Artifact Signing — only if configured)
+      - name: Sign all app binaries (Azure Artifact Signing — only if configured)
         if: env.HAS_SIGNING == 'true'
         uses: azure/artifact-signing-action@v2
         with:
@@ -193,8 +193,11 @@ jobs:
           endpoint: ${{ secrets.ARTIFACT_SIGNING_ENDPOINT }}
           signing-account-name: ${{ secrets.ARTIFACT_SIGNING_ACCOUNT }}
           certificate-profile-name: ${{ secrets.ARTIFACT_SIGNING_PROFILE }}
-          files-folder: ${{ github.workspace }}\dist\HeartCast\bin\64bit
-          files-folder-filter: exe
+          # Smart App Control checks EVERY binary a process loads, so sign all exe + dll
+          # (libobs, plugins, FFmpeg and friends) — not just the main executable.
+          files-folder: ${{ github.workspace }}\dist\HeartCast
+          files-folder-filter: exe,dll
+          files-folder-recurse: true
           file-digest: SHA256
           timestamp-rfc3161: http://timestamp.acs.microsoft.com
           timestamp-digest: SHA256

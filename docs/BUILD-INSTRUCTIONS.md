@@ -92,7 +92,9 @@ organizations also in the EU and UK.
    `AZURE_TENANT_ID`, `AZURE_CLIENT_ID`, `AZURE_CLIENT_SECRET`, `ARTIFACT_SIGNING_ENDPOINT`
    (the Account URI), `ARTIFACT_SIGNING_ACCOUNT`, `ARTIFACT_SIGNING_PROFILE`.
 
-The next build signs `HeartCastStudio.exe` and the installer with a timestamp. To check, right-click
+The next build signs every `.exe` and `.dll` in the package plus the installer, with a timestamp.
+All of them must be signed: Windows 11 **Smart App Control** blocks an app if *any* binary it loads
+(e.g. an FFmpeg or libobs DLL) is unsigned, and it allows no per-app exceptions. To check, right-click
 the file → Properties → **Digital Signatures**.
 
 Free alternative for open-source projects: **SignPath Foundation** (signpath.org) signs GPL projects
