@@ -50,7 +50,7 @@ Legend: ✅ implemented and exercised by automated tests against real libobs ·
 | Replay buffer + save hotkey | ✅ | |
 | Recording library: thumbnails, rename, export, remux, recycle | 🟢 | |
 | Audio mixer: volume, mute, solo, monitoring, sync offset, balance, mono, tracks, peak meters, clip indicator | 🟢 | Global desktop and mic channels plus every audio source |
-| Audio filters: noise suppression, gate, expander, compressor, limiter, gain, EQ, VST 2, presets | 🟢 | VST on Windows |
+| Audio filters: noise suppression, gate, expander, compressor, limiter, gain, EQ, presets | 🟢 | VST 2 hosting: ⏳ (module doesn't load in the Windows build yet) |
 | Video effects: colour correction, chroma/colour key, LUT, mask, crop, sharpen, scale | 🟢 | |
 | AI background removal | 🖥️ | Needs the NVIDIA Video Effects SDK (RTX) or the obs-backgroundremoval plugin |
 | Native widgets: alerts (queue, animation, sound in stream), chat box, event list, labels, goals, countdown, stopwatch, social/sponsor panels, viewer count, text panel | ✅ / 🟢 | Drawn natively and pushed as video frames; no browser source |
@@ -68,11 +68,15 @@ Legend: ✅ implemented and exercised by automated tests against real libobs ·
 | Crash handling: minidumps, recovery notice, atomic saves, corrupt-config fallback | ✅ / 🟢 | |
 | Scene *folders*, Kick/Facebook chat, music-now-playing and media-request widgets, NDI, browser sources, translations | ⏳ | NDI/browser can be added as libobs plugins |
 
-**What was actually tested.** I built and ran everything on Linux against real libobs
-(30.0 runtime). The engine code also compiles cleanly against **OBS 32.2.2** headers, which is
-what the Windows build uses. The Windows-only paths have **not** been executed yet: Direct3D 11,
-WASAPI, game capture, DPAPI, global hotkeys and the Inno Setup installer. The first CI run is the
-first real Windows test. Builds are **not code-signed** unless you add a certificate (see BUILD docs).
+**What was actually tested:** every push runs automated tests on both Windows and Linux.
+On **Windows** (GitHub's Windows Server 2025 image, Direct3D 11 on Microsoft's software GPU) the packaged
+build passes the engine test under full page-heap checking: libobs startup and plugins, starter scenes,
+scene save/load, recording, pause/resume, replay buffer, error reporting, virtual-camera detection and
+clean shutdown. On **Linux** the same engine also streams one shared encode to **two RTMP servers at once**,
+and both receive H.264 + AAC. Not yet exercised: real GPU encoders, webcams, game capture, global hotkeys,
+DPAPI key storage on a real desktop, the installer UI, and live Twitch/YouTube accounts.
+**Known issue:** VST 2 audio plugins (obs-vst) don't load in the Windows build yet.
+Builds are **not code-signed** until you add Azure Artifact Signing (see BUILD docs).
 
 ## Screenshots
 | | |
