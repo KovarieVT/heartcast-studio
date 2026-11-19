@@ -13,10 +13,11 @@ on:
   pull_request:
   workflow_dispatch:
 
-# A newer push cancels an older, still-running build of the same branch.
+# Pull-request builds are replaced by newer pushes; builds of main always run to completion
+# (so a finished Windows job never shows up as "cancelled" because of a later push).
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: true
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 env:
   OBS_VERSION: "32.2.2"          # engine source; bump deliberately and re-run tests
@@ -32,7 +33,7 @@ jobs:
       HAS_SIGNING: ${{ secrets.AZURE_CLIENT_ID != '' }}
     steps:
       - name: Checkout HeartCast
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with: { path: heartcast }
 
       - name: Version
@@ -46,14 +47,14 @@ jobs:
       # ---------------------------------------------------------------- engine
       - name: Cache engine build
         id: obscache
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: obs-dist
           key: obs-${{ env.OBS_VERSION }}-${{ env.VIRTUALCAM_GUID }}-v3
 
       - name: Checkout OBS Studio ${{ env.OBS_VERSION }}
         if: steps.obscache.outputs.cache-hit != 'true'
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           repository: obsproject/obs-studio
           ref: ${{ env.OBS_VERSION }}
@@ -235,7 +236,7 @@ jobs:
              sha256 = $sha; size = $setup.Length; notes = "See the release page for what's new." } |
             ConvertTo-Json | Set-Content dist\update.json
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v6
         with:
           name: HeartCastStudio-${{ steps.ver.outputs.version }}-windows-x64
           path: |
@@ -257,7 +258,7 @@ jobs:
     # multistream to two local RTMP servers.
     runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       - run: |
           sudo apt-get update
           sudo apt-get install -y libobs-dev obs-studio qt6-base-dev qt6-multimedia-dev qt6-websockets-dev \
