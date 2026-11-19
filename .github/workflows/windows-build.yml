@@ -44,7 +44,7 @@ jobs:
         uses: actions/cache@v4
         with:
           path: obs-dist
-          key: obs-${{ env.OBS_VERSION }}-${{ env.VIRTUALCAM_GUID }}-v1
+          key: obs-${{ env.OBS_VERSION }}-${{ env.VIRTUALCAM_GUID }}-v2
 
       - name: Checkout OBS Studio ${{ env.OBS_VERSION }}
         if: steps.obscache.outputs.cache-hit != 'true'
@@ -69,11 +69,26 @@ jobs:
         working-directory: obs-studio
         shell: pwsh
         run: |
+          $ErrorActionPreference = 'Stop'; $PSNativeCommandUseErrorActionPreference = $true
+          $dist = "${{ github.workspace }}/obs-dist"
           cmake --preset windows-x64 `
             -DENABLE_FRONTEND=OFF -DENABLE_BROWSER=OFF -DENABLE_SCRIPTING=OFF -DENABLE_WEBSOCKET=OFF `
             -DVIRTUALCAM_GUID="$env:VIRTUALCAM_GUID"
           cmake --build --preset windows-x64 --config RelWithDebInfo
-          cmake --install build_x64 --config RelWithDebInfo --prefix "${{ github.workspace }}/obs-dist"
+          # runtime files (DLLs, plugins, data)
+          cmake --install build_x64 --config RelWithDebInfo --prefix $dist
+          # developer files (headers, obs.lib, libobsConfig.cmake) are EXCLUDE_FROM_ALL in OBS
+          cmake --install build_x64 --config RelWithDebInfo --prefix $dist --component Development
+          # libobs' CMake package requires SIMDe headers; they live in OBS's .deps folder
+          $simde = Get-ChildItem .deps -Recurse -Filter simde-common.h -ErrorAction SilentlyContinue | Select-Object -First 1
+          if ($simde) {
+            Copy-Item -Recurse $simde.Directory.FullName "$dist/include/simde" -Force
+          } else {
+            git clone --depth 1 --branch v0.8.2 https://github.com/simd-everywhere/simde "$env:RUNNER_TEMP/simde"
+            Copy-Item -Recurse "$env:RUNNER_TEMP/simde/simde" "$dist/include/simde" -Force
+          }
+          if (-not (Get-ChildItem $dist -Recurse -Filter libobsConfig.cmake)) { throw "libobs developer package missing after install" }
+          Get-ChildItem "$dist/cmake" | ForEach-Object { $_.Name }
 
       # ---------------------------------------------------------------- app
       - name: Install Qt ${{ env.QT_VERSION }}
@@ -87,6 +102,7 @@ jobs:
       - name: Configure & build HeartCast
         shell: pwsh
         run: |
+          $ErrorActionPreference = 'Stop'; $PSNativeCommandUseErrorActionPreference = $true
           $libobs = Get-ChildItem -Recurse obs-dist -Filter libobsConfig.cmake | Select-Object -First 1
           $pthr   = Get-ChildItem -Recurse obs-dist -Filter w32-pthreadsConfig.cmake | Select-Object -First 1
           if (-not $libobs) { throw "libobsConfig.cmake not found in obs-dist" }
@@ -101,6 +117,7 @@ jobs:
       - name: Unit tests
         shell: pwsh
         run: |
+          $ErrorActionPreference = 'Stop'; $PSNativeCommandUseErrorActionPreference = $true
           $env:PATH = "$env:QT_ROOT_DIR\bin;${{ github.workspace }}\obs-dist\bin\64bit;$env:PATH"
           ctest --test-dir hcbuild -C Release --output-on-failure
 
@@ -113,6 +130,7 @@ jobs:
         working-directory: heartcast
         shell: pwsh
         run: |
+          $ErrorActionPreference = 'Stop'; $PSNativeCommandUseErrorActionPreference = $true
           ./tools/package_windows.ps1 -ObsInstall "${{ github.workspace }}/obs-dist" `
             -AppExe "${{ github.workspace }}/hcbuild/bin/Release/HeartCastStudio.exe" `
             -QtBin "$env:QT_ROOT_DIR/bin" -Out "${{ github.workspace }}/dist/HeartCast" `
@@ -146,6 +164,7 @@ jobs:
       - name: Build installer (Inno Setup)
         shell: pwsh
         run: |
+          $ErrorActionPreference = 'Stop'; $PSNativeCommandUseErrorActionPreference = $true
           choco install innosetup -y --no-progress
           & "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe" `
             /DSourceDir="${{ github.workspace }}\dist\HeartCast" /DAppVersion="${{ steps.ver.outputs.version }}" `
