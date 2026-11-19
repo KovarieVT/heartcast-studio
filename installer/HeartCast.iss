@@ -33,6 +33,9 @@ ArchitecturesAllowed=x64compatible
 ArchitecturesInstallIn64BitMode=x64compatible
 MinVersion=10.0.17763
 PrivilegesRequired=admin
+; Let people choose "Install for me only" (no administrator rights; goes to
+; %LOCALAPPDATA%\Programs) or "Install for all users" (needs admin; enables the virtual camera).
+PrivilegesRequiredOverridesAllowed=dialog commandline
 OutputDir=..\dist
 OutputBaseFilename=HeartCastStudio-{#AppVersion}-Setup
 SetupIconFile=assets\setup.ico
@@ -97,10 +100,10 @@ Name: "{autoprograms}\{#AppName}"; Filename: "{app}\bin\64bit\{#AppExe}"; Workin
 Name: "{autodesktop}\{#AppName}";  Filename: "{app}\bin\64bit\{#AppExe}"; WorkingDir: "{app}\bin\64bit"; Tasks: desktopicon
 
 [Run]
-Filename: "{tmp}\vc_redist.x64.exe"; Parameters: "/install /quiet /norestart"; StatusMsg: "Installing Microsoft Visual C++ runtime…"; Check: NeedsVCRedist; Flags: waituntilterminated skipifdoesntexist
+Filename: "{tmp}\vc_redist.x64.exe"; Parameters: "/install /quiet /norestart"; StatusMsg: "Installing Microsoft Visual C++ runtime…"; Check: NeedsVCRedist and IsAdminInstallMode; Flags: waituntilterminated skipifdoesntexist
 ; Virtual camera: register the DirectShow camera filter (64- and 32-bit so 32-bit apps like some Zoom builds see it)
-Filename: "{sys}\regsvr32.exe"; Parameters: "/s ""{app}\data\obs-plugins\win-dshow\obs-virtualcam-module64.dll"""; Components: vcam; StatusMsg: "Registering the virtual camera…"; Flags: runhidden waituntilterminated skipifdoesntexist
-Filename: "{syswow64}\regsvr32.exe"; Parameters: "/s ""{app}\data\obs-plugins\win-dshow\obs-virtualcam-module32.dll"""; Components: vcam; Flags: runhidden waituntilterminated skipifdoesntexist
+Filename: "{sys}\regsvr32.exe"; Parameters: "/s ""{app}\data\obs-plugins\win-dshow\obs-virtualcam-module64.dll"""; Components: vcam; Check: IsAdminInstallMode; StatusMsg: "Registering the virtual camera…"; Flags: runhidden waituntilterminated skipifdoesntexist
+Filename: "{syswow64}\regsvr32.exe"; Parameters: "/s ""{app}\data\obs-plugins\win-dshow\obs-virtualcam-module32.dll"""; Components: vcam; Check: IsAdminInstallMode; Flags: runhidden waituntilterminated skipifdoesntexist
 Filename: "{app}\bin\64bit\{#AppExe}"; Description: "Launch HeartCast Studio ♡"; WorkingDir: "{app}\bin\64bit"; Flags: postinstall nowait skipifsilent
 Filename: "{app}\docs\USER-GUIDE.html"; Description: "View the Getting Started guide"; Components: docs; Flags: postinstall shellexec skipifsilent unchecked skipifdoesntexist
 
@@ -152,10 +155,19 @@ begin
   if WinVer.Build >= 17763 then DepsReport := DepsReport + '   ✓ supported' + #13#10
   else DepsReport := DepsReport + '   ✗ Windows 10 version 1809 or newer is required' + #13#10;
   if IsWin64 then DepsReport := DepsReport + '64-bit system   ✓' + #13#10;
+  if IsAdminInstallMode then
+    DepsReport := DepsReport + 'Installing for all users   ✓' + #13#10
+  else
+    DepsReport := DepsReport + 'Installing just for you (no administrator rights needed)   ✓' + #13#10;
   if VCRedistInstalled then
     DepsReport := DepsReport + 'Microsoft Visual C++ 2015-2022 runtime   ✓ already installed' + #13#10
+  else if IsAdminInstallMode then
+    DepsReport := DepsReport + 'Microsoft Visual C++ 2015-2022 runtime   → will be installed automatically' + #13#10
   else
-    DepsReport := DepsReport + 'Microsoft Visual C++ 2015-2022 runtime   → will be installed automatically' + #13#10;
+    DepsReport := DepsReport + 'Microsoft Visual C++ 2015-2022 runtime   ✗ missing — it needs administrator rights.' + #13#10 +
+                  '      Go back and choose "Install for all users", or install it from https://aka.ms/vs/17/release/vc_redist.x64.exe' + #13#10;
+  if not IsAdminInstallMode then
+    DepsReport := DepsReport + 'Virtual Camera   → needs "Install for all users"; skipped for a just-for-me install' + #13#10;
   DepsReport := DepsReport + 'DirectX 11 graphics   → checked when HeartCast starts (update your GPU driver if it reports a problem)' + #13#10;
   DepsReport := DepsReport + #13#10 + 'Your settings, scenes and stream keys live in %APPDATA%\HeartCast and are never removed by upgrades.';
 end;
@@ -191,6 +203,10 @@ begin
     if WinVer.Build < 17763 then begin
       MsgBox('HeartCast Studio needs Windows 10 version 1809 or newer.', mbCriticalError, MB_OK);
       Result := False;
+    end else if (not IsAdminInstallMode) and (not VCRedistInstalled) then begin
+      Result := MsgBox('The Microsoft Visual C++ runtime is missing, and installing it needs administrator rights.' + #13#10#13#10 +
+                       'HeartCast will not start without it. Continue anyway and install the runtime yourself afterwards?',
+                       mbConfirmation, MB_YESNO) = IDYES;
     end;
   end;
 end;
