@@ -16,7 +16,7 @@ on:
 # Pull-request builds are replaced by newer pushes; builds of main always run to completion
 # (so a finished Windows job never shows up as "cancelled" because of a later push).
 concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
+  group: ${{ github.event_name == 'pull_request' && format('pr-{0}', github.ref) || format('run-{0}', github.run_id) }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 env:
@@ -257,11 +257,14 @@ jobs:
     # Fast feedback: the same engine code against Ubuntu's libobs, including a real
     # multistream to two local RTMP servers.
     runs-on: ubuntu-24.04
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@v6
-      - run: |
-          sudo apt-get update
-          sudo apt-get install -y libobs-dev obs-studio qt6-base-dev qt6-multimedia-dev qt6-websockets-dev \
+      - name: Install dependencies
+        timeout-minutes: 15
+        run: |
+          sudo apt-get -o Acquire::Retries=3 -o Acquire::http::Timeout=30 update
+          sudo apt-get -o Acquire::Retries=3 install -y --no-install-recommends libobs-dev obs-studio qt6-base-dev qt6-multimedia-dev qt6-websockets-dev \
             libqt6svg6-dev libgl1-mesa-dev mesa-utils xvfb ffmpeg ninja-build
       - run: cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=RelWithDebInfo && cmake --build build
       - run: ./build/tests/heartcast_unit_tests -platform offscreen
