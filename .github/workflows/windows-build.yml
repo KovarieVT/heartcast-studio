@@ -13,6 +13,11 @@ on:
   pull_request:
   workflow_dispatch:
 
+# A newer push cancels an older, still-running build of the same branch.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 env:
   OBS_VERSION: "32.2.2"          # engine source; bump deliberately and re-run tests
   QT_VERSION: "6.8.3"
@@ -44,7 +49,7 @@ jobs:
         uses: actions/cache@v4
         with:
           path: obs-dist
-          key: obs-${{ env.OBS_VERSION }}-${{ env.VIRTUALCAM_GUID }}-v2
+          key: obs-${{ env.OBS_VERSION }}-${{ env.VIRTUALCAM_GUID }}-v3
 
       - name: Checkout OBS Studio ${{ env.OBS_VERSION }}
         if: steps.obscache.outputs.cache-hit != 'true'
@@ -79,6 +84,15 @@ jobs:
           cmake --install build_x64 --config RelWithDebInfo --prefix $dist
           # developer files (headers, obs.lib, libobsConfig.cmake) are EXCLUDE_FROM_ALL in OBS
           cmake --install build_x64 --config RelWithDebInfo --prefix $dist --component Development
+          # OBS only bundles its third-party runtime DLLs (FFmpeg, x264, SRT, RIST, mbedTLS, curl,
+          # zlib, datachannel…) when building its own frontend, so copy them from .deps ourselves.
+          $deps = Get-ChildItem .deps -Directory | Where-Object { $_.Name -like 'obs-deps-*-x64' -and $_.Name -notlike '*qt*' }
+          if (-not $deps) { throw "obs-deps folder not found in .deps" }
+          foreach ($d in $deps) {
+            Get-ChildItem "$($d.FullName)/bin" -Filter *.dll -ErrorAction SilentlyContinue |
+              Where-Object { $_.Name -notlike 'Qt6*' } | Copy-Item -Destination "$dist/bin/64bit" -Force
+          }
+          Get-ChildItem "$dist/bin/64bit" -Filter *.dll | ForEach-Object { $_.Name }
           # libobs' CMake package requires SIMDe headers; they live in OBS's .deps folder
           $simde = Get-ChildItem .deps -Recurse -Filter simde-common.h -ErrorAction SilentlyContinue | Select-Object -First 1
           if ($simde) {
@@ -115,11 +129,13 @@ jobs:
           cmake --build hcbuild --config Release --parallel
 
       - name: Unit tests
+        timeout-minutes: 10
         shell: pwsh
         run: |
           $ErrorActionPreference = 'Stop'; $PSNativeCommandUseErrorActionPreference = $true
           $env:PATH = "$env:QT_ROOT_DIR\bin;${{ github.workspace }}\obs-dist\bin\64bit;$env:PATH"
-          ctest --test-dir hcbuild -C Release --output-on-failure
+          $env:QT_QPA_PLATFORM = "offscreen"
+          ctest --test-dir hcbuild -C Release --output-on-failure --timeout 300
 
       # ---------------------------------------------------------------- package
       - name: Download Microsoft VC++ runtime (for the installer)
@@ -138,6 +154,7 @@ jobs:
 
       - name: Engine smoke test (best effort — hosted runners have no GPU)
         continue-on-error: true
+        timeout-minutes: 8
         shell: pwsh
         run: |
           $bin = "${{ github.workspace }}/dist/HeartCast/bin/64bit"
