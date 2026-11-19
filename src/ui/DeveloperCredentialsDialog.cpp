@@ -93,7 +93,7 @@ DeveloperCredentialsDialog::DeveloperCredentialsDialog(const QString &focusPlatf
         "<li>Turn on <b>two-factor authentication</b> for your Twitch account (Settings → Security and Privacy). Twitch requires it before you can register an app.</li>"
         "<li>Open the Twitch Developer Console → <b>Applications</b> → <b>Register Your Application</b>.</li>"
         "<li><b>Name:</b> anything unique, e.g. <i>HeartCast Studio - yourname</i><br>"
-        "<b>OAuth Redirect URLs:</b> <code>http://localhost</code> then click <b>Add</b><br>"
+        "<b>OAuth Redirect URLs:</b> type <code>https://localhost</code> into the box. Don't press <b>Add</b>, because that only makes another empty box, which Twitch rejects.<br>"
         "<b>Category:</b> Broadcaster Suite<br>"
         "<b>Client Type:</b> <b>Public</b> (important: Confidential won't work)</li>"
         "<li>Click <b>Create</b>, then <b>Manage</b>, and copy the <b>Client ID</b> into the box below. No secret is needed.</li>"

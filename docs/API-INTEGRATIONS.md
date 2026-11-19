@@ -20,8 +20,8 @@ Without credentials you can still stream with a manual Stream URL + Key. Only ac
 ## Twitch: implemented, needs a Client ID
 1. Turn on two-factor authentication for the Twitch account (Twitch requires it to register apps).
 2. Go to <https://dev.twitch.tv/console/apps> → *Register Your Application*.
-3. Name: anything unique. OAuth Redirect URL: `http://localhost` (unused by the device flow, but
-   required). Category: Broadcaster Suite. **Client Type: Public**. A Confidential app can't finish
+3. Name: anything unique. OAuth Redirect URL: type `https://localhost` into the box (the device flow
+   doesn't use it, but it's required). Don't press *Add*, because an empty extra row fails the console's HTTPS check. Category: Broadcaster Suite. **Client Type: Public**. A Confidential app can't finish
    the device flow without a secret, and HeartCast's error message says so.
 4. Copy the Client ID. No client secret is needed: HeartCast uses the **Device Code Grant**. The user
    opens twitch.tv/activate, enters the code shown in HeartCast and approves.
