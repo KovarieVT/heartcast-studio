@@ -1,0 +1,25 @@
+{
+  "name": "Starter Collection",
+  "scenes": [
+    {"name": "Starting Soon ♡", "items": [
+      {"type": "bc_gradient", "name": "Pastel Background", "settings": {"color1": "#FFDCEB", "color2": "#D2F3E7"}},
+      {"type": "text", "name": "Starting Soon Text", "settings": {"text": "starting soon ♡", "size": 96, "color": "#C96F9D"}, "align": "center"}
+    ]},
+    {"name": "Just Chatting", "items": [
+      {"type": "bc_gradient", "name": "Chatting Background", "settings": {"color1": "#EDE4FF", "color2": "#FFDCEB"}},
+      {"type": "webcam", "name": "Webcam", "settings": {}}
+    ]},
+    {"name": "Gameplay", "items": [
+      {"type": "game_capture", "name": "Game", "settings": {}},
+      {"type": "webcam", "name": "Webcam (corner)", "settings": {}, "scale": 0.28, "align": "bottom_right"}
+    ]},
+    {"name": "BRB", "items": [
+      {"type": "bc_gradient", "name": "BRB Background", "settings": {"color1": "#D2F3E7", "color2": "#FFF9FC"}},
+      {"type": "text", "name": "BRB Text", "settings": {"text": "be right back ✦", "size": 96, "color": "#77CDB1"}, "align": "center"}
+    ]},
+    {"name": "Ending ♡", "items": [
+      {"type": "bc_gradient", "name": "Ending Background", "settings": {"color1": "#F7C4D8", "color2": "#DCCCF7"}},
+      {"type": "text", "name": "Ending Text", "settings": {"text": "thank you for watching ♡", "size": 84, "color": "#FFF9FC"}, "align": "center"}
+    ]}
+  ]
+}

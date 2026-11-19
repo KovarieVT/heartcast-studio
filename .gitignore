@@ -1,0 +1,9 @@
+build/
+hcbuild/
+dist/
+obs-studio/
+obs-dist/
+*.user
+.vs/
+CMakeUserPresets.json
+developer.json

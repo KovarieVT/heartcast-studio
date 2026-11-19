@@ -1,0 +1,197 @@
+{
+  "_comment": "Capabilities reflect what each platform's OFFICIAL public API allows third-party desktop apps to do. 'manual' means the user pastes server URL + stream key from the platform's own dashboard.",
+  "platforms": [
+    {
+      "id": "twitch",
+      "name": "Twitch",
+      "color": "#9146FF",
+      "auth": "oauth_device",
+      "defaultServer": "rtmp://live.twitch.tv/app",
+      "capabilities": [
+        "oauth",
+        "fetch_stream_key",
+        "title",
+        "category",
+        "chat_read",
+        "chat_send",
+        "moderation",
+        "events"
+      ],
+      "scopes": [
+        "channel:read:stream_key",
+        "channel:manage:broadcast",
+        "chat:read",
+        "chat:edit",
+        "moderator:read:followers",
+        "channel:read:subscriptions",
+        "bits:read",
+        "moderator:manage:banned_users",
+        "moderator:manage:chat_messages",
+        "moderator:manage:chat_settings",
+        "channel:read:redemptions",
+        "user:manage:blocked_users"
+      ],
+      "recommended": {
+        "maxBitrate": 6000,
+        "keyint": 2,
+        "codec": "h264",
+        "audioBitrate": 160
+      },
+      "keyHelp": "Twitch Creator Dashboard → Settings → Stream → Primary Stream Key"
+    },
+    {
+      "id": "youtube",
+      "name": "YouTube Live",
+      "color": "#FF0033",
+      "auth": "oauth_loopback_pkce",
+      "defaultServer": "rtmp://a.rtmp.youtube.com/live2",
+      "capabilities": [
+        "oauth",
+        "create_broadcast",
+        "title",
+        "description",
+        "privacy",
+        "schedule",
+        "chat_read",
+        "chat_send",
+        "moderation"
+      ],
+      "scopes": [
+        "https://www.googleapis.com/auth/youtube"
+      ],
+      "recommended": {
+        "maxBitrate": 9000,
+        "keyint": 2,
+        "codec": "h264",
+        "audioBitrate": 160
+      },
+      "keyHelp": "YouTube Studio → Go Live → Stream → Stream key"
+    },
+    {
+      "id": "kick",
+      "name": "Kick",
+      "color": "#53FC18",
+      "auth": "manual",
+      "defaultServer": "",
+      "capabilities": [
+        "manual_key"
+      ],
+      "recommended": {
+        "maxBitrate": 8000,
+        "keyint": 2,
+        "codec": "h264",
+        "audioBitrate": 160
+      },
+      "keyHelp": "Kick → Creator Dashboard → Settings → Stream URL & Key. Copy BOTH the Stream URL and the Stream Key.",
+      "limitations": "Kick's public developer API is new and gated; HeartCast uses Stream URL + Key. Chat/events integration is a planned plugin once API access is approved for this app."
+    },
+    {
+      "id": "tiktok",
+      "name": "TikTok LIVE",
+      "color": "#FE2C55",
+      "auth": "manual",
+      "defaultServer": "",
+      "capabilities": [
+        "manual_key"
+      ],
+      "recommended": {
+        "maxBitrate": 6000,
+        "keyint": 2,
+        "codec": "h264",
+        "audioBitrate": 128,
+        "canvas": "1080x1920"
+      },
+      "keyHelp": "Only accounts TikTok has granted stream-key access can stream from third-party software. Find Server URL + Stream Key in TikTok LIVE Center / LIVE Producer.",
+      "limitations": "TikTok does not offer a public API for third-party apps to create LIVE sessions, read chat, or fetch stream keys. Eligibility is decided by TikTok."
+    },
+    {
+      "id": "facebook",
+      "name": "Facebook Live",
+      "color": "#1877F2",
+      "auth": "manual",
+      "defaultServer": "rtmps://live-api-s.facebook.com:443/rtmp/",
+      "capabilities": [
+        "manual_key"
+      ],
+      "recommended": {
+        "maxBitrate": 6000,
+        "keyint": 2,
+        "codec": "h264",
+        "audioBitrate": 128
+      },
+      "keyHelp": "Facebook → Live Producer → Streaming software → use a persistent stream key.",
+      "limitations": "The Facebook Live Video API requires a Meta app that passes App Review (publish_video, pages_manage_posts). Until HeartCast's Meta app is approved, use Live Producer stream keys."
+    },
+    {
+      "id": "instagram",
+      "name": "Instagram Live",
+      "color": "#E1306C",
+      "auth": "manual",
+      "defaultServer": "",
+      "capabilities": [
+        "manual_key"
+      ],
+      "recommended": {
+        "maxBitrate": 4000,
+        "keyint": 2,
+        "codec": "h264",
+        "audioBitrate": 128,
+        "canvas": "720x1280"
+      },
+      "keyHelp": "Instagram (professional accounts, where available) → Live Producer → copy Stream URL + Key. Keys are single-session.",
+      "limitations": "Instagram has no public API for third-party live creation or chat."
+    },
+    {
+      "id": "x",
+      "name": "X Live",
+      "color": "#14171A",
+      "auth": "manual",
+      "defaultServer": "",
+      "capabilities": [
+        "manual_key"
+      ],
+      "recommended": {
+        "maxBitrate": 9000,
+        "keyint": 3,
+        "codec": "h264",
+        "audioBitrate": 128
+      },
+      "keyHelp": "X Media Studio → Producer → Sources → create an RTMP source.",
+      "limitations": "Requires Media Studio Producer access on the X account."
+    },
+    {
+      "id": "trovo",
+      "name": "Trovo",
+      "color": "#19D66B",
+      "auth": "manual",
+      "defaultServer": "rtmp://livepush.trovo.live/live/",
+      "capabilities": [
+        "manual_key"
+      ],
+      "recommended": {
+        "maxBitrate": 9000,
+        "keyint": 2,
+        "codec": "h264",
+        "audioBitrate": 160
+      },
+      "keyHelp": "Trovo Studio → Stream settings → Stream key."
+    },
+    {
+      "id": "custom",
+      "name": "Custom RTMP / RTMPS",
+      "color": "#C96F9D",
+      "auth": "manual",
+      "defaultServer": "rtmp://",
+      "capabilities": [
+        "manual_key"
+      ],
+      "recommended": {
+        "maxBitrate": 6000,
+        "keyint": 2,
+        "codec": "h264",
+        "audioBitrate": 160
+      },
+      "keyHelp": "Any RTMP/RTMPS ingest: enter the server URL and stream key."
+    }
+  ]
+}

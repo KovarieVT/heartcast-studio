@@ -1,0 +1,188 @@
+/* ===========================================================
+   HeartCast Studio — "Cotton Candy" theme
+   Tokens are substituted at load time by Theme.cpp:
+   @pink @rose @baby @mint @softmint @pearl @lavender @lilac
+   @blush @deeprose @mintaccent @charcoal @gray @fontscale
+   =========================================================== */
+
+* {
+    font-family: "Nunito", "Quicksand", "Poppins", "Segoe UI", sans-serif;
+    font-size: @fontscalept;
+    color: @charcoal;
+    outline: none;
+}
+
+QMainWindow, QDialog, QWizard {
+    background: qlineargradient(x1:0, y1:0, x2:1, y2:1,
+        stop:0 @pearl, stop:0.55 @baby, stop:1 @softmint);
+}
+
+QToolTip {
+    background: @pearl; color: @charcoal;
+    border: 1px solid @rose; border-radius: 8px; padding: 6px 10px;
+}
+
+/* ---------- glass panels ---------- */
+QFrame#GlassPanel, QDockWidget > QWidget, QGroupBox {
+    background: rgba(255, 249, 252, 0.78);
+    border: 1px solid rgba(245, 166, 200, 0.55);
+    border-radius: 16px;
+}
+QGroupBox { margin-top: 18px; padding: 12px 10px 10px 10px; }
+QGroupBox::title {
+    subcontrol-origin: margin; left: 14px; padding: 2px 10px;
+    background: @baby; border-radius: 9px; color: @deeprose; font-weight: 700;
+}
+
+QDockWidget { color: @deeprose; font-weight: 700; }
+QDockWidget::close-button, QDockWidget::float-button {
+    background: @pearl; border: 1px solid @rose; border-radius: 7px; padding: 1px;
+}
+QDockWidget::close-button:hover, QDockWidget::float-button:hover { background: @pink; }
+QMainWindow::separator { background: transparent; width: 6px; height: 6px; }
+QMainWindow::separator:hover { background: @rose; }
+QTabBar::tab:bottom, QTabBar::tab:top { min-width: 60px; }
+QDockWidget::title {
+    background: qlineargradient(x1:0, y1:0, x2:1, y2:0, stop:0 @rose, stop:1 @lilac);
+    border-top-left-radius: 14px; border-top-right-radius: 14px;
+    padding: 6px 12px; text-align: left;
+}
+
+/* ---------- navigation rail ---------- */
+QListWidget#NavRail {
+    background: rgba(255, 249, 252, 0.85);
+    border: none; border-right: 1px solid @rose;
+    padding: 10px 6px;
+}
+QListWidget#NavRail::item {
+    padding: 9px 12px; margin: 2px 4px; border-radius: 12px; color: @charcoal;
+}
+QListWidget#NavRail::item:hover { background: @baby; }
+QListWidget#NavRail::item:selected {
+    background: qlineargradient(x1:0, y1:0, x2:1, y2:0, stop:0 @pink, stop:1 @rose);
+    color: white; font-weight: 700;
+}
+
+/* ---------- buttons ---------- */
+QPushButton, QToolButton {
+    background: qlineargradient(x1:0, y1:0, x2:0, y2:1, stop:0 #FFFFFF, stop:1 @baby);
+    border: 1px solid @rose; border-radius: 12px;
+    padding: 7px 16px; font-weight: 600;
+}
+QPushButton:hover, QToolButton:hover { border-color: @pink; background: @baby; }
+QPushButton:pressed, QToolButton:pressed { background: @rose; }
+QPushButton:disabled { color: #B9AEB8; border-color: @gray; background: @gray; }
+QPushButton:checked, QToolButton:checked { background: @rose; border-color: @blush; }
+
+QPushButton[accent="pink"] {
+    color: white; border: 1px solid @deeprose;
+    background: qlineargradient(x1:0, y1:0, x2:0, y2:1, stop:0 @pink, stop:1 @blush);
+}
+QPushButton[accent="pink"]:hover { background: @blush; }
+QPushButton[accent="mint"] {
+    color: #24584A; border: 1px solid @mintaccent;
+    background: qlineargradient(x1:0, y1:0, x2:0, y2:1, stop:0 @softmint, stop:1 @mint);
+}
+QPushButton[accent="mint"]:hover { background: @mint; }
+QPushButton[live="true"] {
+    color: white; border: 1px solid #A8456F;
+    background: qlineargradient(x1:0, y1:0, x2:0, y2:1, stop:0 #EF6FA3, stop:1 #C9467F);
+}
+
+/* ---------- inputs ---------- */
+QLineEdit, QSpinBox, QDoubleSpinBox, QComboBox, QPlainTextEdit, QTextEdit, QKeySequenceEdit {
+    background: @pearl; border: 1px solid @rose; border-radius: 10px;
+    padding: 5px 9px; selection-background-color: @pink; selection-color: white;
+}
+QLineEdit:focus, QSpinBox:focus, QComboBox:focus, QPlainTextEdit:focus { border: 2px solid @pink; }
+QComboBox::drop-down { border: none; width: 22px; }
+QComboBox QAbstractItemView {
+    background: @pearl; border: 1px solid @rose; border-radius: 10px;
+    selection-background-color: @baby; selection-color: @charcoal;
+}
+
+QCheckBox::indicator, QRadioButton::indicator {
+    width: 18px; height: 18px; border: 2px solid @pink; background: @pearl;
+}
+QCheckBox::indicator { border-radius: 6px; }
+QRadioButton::indicator { border-radius: 10px; }
+QCheckBox::indicator:checked, QRadioButton::indicator:checked { background: @pink; }
+QTreeView::indicator, QListView::indicator, QTableView::indicator {
+    width: 14px; height: 14px; border: 2px solid @pink; border-radius: 5px; background: @pearl;
+}
+QTreeView::indicator:checked, QListView::indicator:checked, QTableView::indicator:checked { background: @pink; }
+
+/* ---------- lists / trees ---------- */
+QListWidget, QTreeWidget, QTableWidget, QListView, QTreeView {
+    background: rgba(255, 249, 252, 0.9); border: 1px solid @rose;
+    border-radius: 12px; padding: 4px; alternate-background-color: @lilac;
+}
+QListWidget::item, QTreeWidget::item { padding: 5px 8px; border-radius: 8px; }
+QListWidget::item:selected, QTreeWidget::item:selected, QTableWidget::item:selected {
+    background: @rose; color: @charcoal;
+}
+QHeaderView::section {
+    background: @baby; border: none; padding: 6px; color: @deeprose; font-weight: 700;
+}
+
+/* ---------- sliders & progress ---------- */
+QSlider::groove:horizontal { height: 6px; background: @lilac; border-radius: 3px; }
+QSlider::sub-page:horizontal {
+    background: qlineargradient(x1:0, y1:0, x2:1, y2:0, stop:0 @mint, stop:1 @pink);
+    border-radius: 3px;
+}
+QSlider::handle:horizontal {
+    width: 16px; height: 16px; margin: -6px 0; border-radius: 8px;
+    background: white; border: 2px solid @pink;
+}
+QSlider::groove:vertical { width: 6px; background: @lilac; border-radius: 3px; }
+QSlider::add-page:vertical {
+    background: qlineargradient(x1:0, y1:1, x2:0, y2:0, stop:0 @mint, stop:1 @pink);
+    border-radius: 3px;
+}
+QSlider::handle:vertical {
+    width: 16px; height: 16px; margin: 0 -6px; border-radius: 8px;
+    background: white; border: 2px solid @pink;
+}
+QProgressBar {
+    background: @lilac; border: none; border-radius: 8px; height: 14px;
+    text-align: center; color: @charcoal; font-size: 8pt;
+}
+QProgressBar::chunk {
+    border-radius: 8px;
+    background: qlineargradient(x1:0, y1:0, x2:1, y2:0, stop:0 @mint, stop:0.5 @pink, stop:1 @lavender);
+}
+
+/* ---------- tabs ---------- */
+QTabWidget::pane { border: 1px solid @rose; border-radius: 14px; background: rgba(255,249,252,0.85); top: -1px; }
+QTabBar::tab {
+    background: @baby; border: 1px solid @rose; border-bottom: none;
+    padding: 7px 16px; margin-right: 3px;
+    border-top-left-radius: 12px; border-top-right-radius: 12px;
+}
+QTabBar::tab:selected { background: @pearl; color: @deeprose; font-weight: 700; }
+
+/* ---------- scrollbars ---------- */
+QScrollBar:vertical { width: 10px; background: transparent; margin: 2px; }
+QScrollBar::handle:vertical { background: @rose; border-radius: 5px; min-height: 30px; }
+QScrollBar:horizontal { height: 10px; background: transparent; margin: 2px; }
+QScrollBar::handle:horizontal { background: @rose; border-radius: 5px; min-width: 30px; }
+QScrollBar::add-line, QScrollBar::sub-line { width: 0; height: 0; }
+
+/* ---------- status / menus ---------- */
+QStatusBar { background: rgba(255,249,252,0.9); border-top: 1px solid @rose; }
+QMenuBar { background: transparent; }
+QMenuBar::item:selected { background: @baby; border-radius: 8px; }
+QMenu { background: @pearl; border: 1px solid @rose; border-radius: 12px; padding: 6px; }
+QMenu::item { padding: 6px 22px; border-radius: 8px; }
+QMenu::item:selected { background: @baby; }
+
+QLabel#H1 { font-size: 20pt; font-weight: 800; color: @deeprose; }
+QLabel#H2 { font-size: 13pt; font-weight: 700; color: @deeprose; }
+QLabel#Muted { color: #8C7F8B; }
+QLabel[pill="live"]  { background: #EF6FA3; color: white; border-radius: 10px; padding: 3px 12px; font-weight: 800; }
+QLabel[pill="rec"]   { background: @deeprose; color: white; border-radius: 10px; padding: 3px 12px; font-weight: 800; }
+QLabel[pill="off"]   { background: @gray; color: @charcoal; border-radius: 10px; padding: 3px 12px; }
+QLabel[pill="ok"]    { background: @softmint; color: #24584A; border-radius: 10px; padding: 3px 12px; }
+QLabel[pill="error"] { background: #F7B7B7; color: #7A2230; border-radius: 10px; padding: 3px 12px; font-weight: 700; }
+QLabel[pill="warn"]  { background: #FFE6B3; color: #6B4A00; border-radius: 10px; padding: 3px 12px; }

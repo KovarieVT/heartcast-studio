@@ -1,0 +1,5 @@
+#pragma once
+#define BC_APP_NAME    "@APP_NAME@"
+#define BC_APP_EXE     "@APP_EXE@"
+#define BC_APP_ORG     "@APP_ORG@"
+#define BC_APP_VERSION "@APP_VERSION@"

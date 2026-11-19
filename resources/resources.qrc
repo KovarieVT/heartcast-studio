@@ -1,0 +1,12 @@
+<!DOCTYPE RCC>
+<RCC version="1.0">
+  <qresource prefix="/">
+    <file>icons/logo.svg</file>
+    <file>icons/logo_256.png</file>
+    <file>theme/kawaii.qss</file>
+    <file>overlays/packs.json</file>
+    <file>scenes/starter_collection.json</file>
+    <file>config/platforms.json</file>
+    <file>LICENSE.txt</file>
+  </qresource>
+</RCC>

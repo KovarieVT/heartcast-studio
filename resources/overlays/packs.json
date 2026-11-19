@@ -1,0 +1,21 @@
+{
+  "packs": [
+    {"id": "cotton-candy",    "name": "Cotton Candy",    "bg": ["#FFDCEB", "#DCCCF7"], "accent": "#F5A6C8", "text": "#514852", "emoji": "♡", "font": "Nunito"},
+    {"id": "strawberry-milk", "name": "Strawberry Milk", "bg": ["#FFF9FC", "#F7C4D8"], "accent": "#E98DB7", "text": "#6B3550", "emoji": "🍓", "font": "Quicksand"},
+    {"id": "mint-macaron",    "name": "Mint Macaron",      "bg": ["#D2F3E7", "#FFF9FC"], "accent": "#77CDB1", "text": "#2E5A4D", "emoji": "✿", "font": "Nunito"},
+    {"id": "pastel-dream",    "name": "Pastel Dream",    "bg": ["#EDE4FF", "#D2F3E7"], "accent": "#DCCCF7", "text": "#514852", "emoji": "☁", "font": "Quicksand"},
+    {"id": "pink-galaxy",     "name": "Pink Galaxy",     "bg": ["#3B2B4F", "#C96F9D"], "accent": "#F5A6C8", "text": "#FFF9FC", "emoji": "✦", "font": "Poppins"},
+    {"id": "cherry-blossom",  "name": "Cherry Blossom",  "bg": ["#FFF0F5", "#F7C4D8"], "accent": "#C96F9D", "text": "#5A3446", "emoji": "🌸", "font": "Nunito"},
+    {"id": "magical-girl",    "name": "Magical Girl",    "bg": ["#F5A6C8", "#DCCCF7"], "accent": "#FFF9FC", "text": "#514852", "emoji": "★", "font": "Poppins"},
+    {"id": "soft-academia",   "name": "Soft Academia",   "bg": ["#F5F1F5", "#E8DCCF"], "accent": "#C96F9D", "text": "#4A3F3A", "emoji": "✎", "font": "Inter"}
+  ],
+  "alertTemplates": {
+    "follow":       "{user} just followed! welcome, cutie ♡",
+    "subscribe":    "{user} subscribed! thank you, cutie ✦",
+    "gift":         "{user} gifted {amount} subs! so generous ♡",
+    "raid":         "{user} is raiding with {amount} friends! hi hi!",
+    "cheer":        "{user} cheered {amount} bits ✦",
+    "donation":     "{user} tipped {amount}! {message}",
+    "membership":   "{user} became a member ♡"
+  }
+}

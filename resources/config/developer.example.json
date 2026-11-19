@@ -1,0 +1,6 @@
+{
+  "_comment": "Copy to %APPDATA%\\HeartCast\\developer.json. These are YOUR developer app credentials, read at runtime — never commit real values. See docs/API-INTEGRATIONS.md.",
+  "twitchClientId": "",
+  "googleClientId": "",
+  "googleClientSecret": ""
+}

@@ -1,0 +1,211 @@
+# Builds the real Windows deliverables on a GitHub-hosted Windows runner:
+#   • libobs + engine plugins from OBS Studio source (pinned tag, UI/browser disabled)
+#   • HeartCastStudio.exe (Qt 6 + libobs), unit tests, best-effort engine smoke test
+#   • portable ZIP + Inno Setup installer (HeartCastStudio-<ver>-Setup.exe)
+#   • optional Authenticode signing via Azure Artifact Signing (only when its secrets are configured)
+#   • on version tags (v*): a GitHub Release with an update.json feed for the in-app updater
+name: Windows build
+
+on:
+  push:
+    branches: [main]
+    tags: ["v*"]
+  pull_request:
+  workflow_dispatch:
+
+env:
+  OBS_VERSION: "32.2.2"          # engine source; bump deliberately and re-run tests
+  QT_VERSION: "6.8.3"
+  # Our OWN DirectShow virtual-camera CLSID so we never collide with an OBS install
+  VIRTUALCAM_GUID: "B7A3E4D1-5C2F-4A8E-9D61-3F0C2E8B7A54"
+
+jobs:
+  windows-x64:
+    runs-on: windows-2025-vs2026   # same image OBS uses for its own Windows builds
+    timeout-minutes: 120
+    env:
+      HAS_SIGNING: ${{ secrets.AZURE_CLIENT_ID != '' }}
+    steps:
+      - name: Checkout HeartCast
+        uses: actions/checkout@v4
+        with: { path: heartcast }
+
+      - name: Version
+        id: ver
+        shell: pwsh
+        run: |
+          $v = (Select-String -Path heartcast/CMakeLists.txt -Pattern 'set\(APP_VERSION\s+"([^"]+)"').Matches[0].Groups[1].Value
+          if ($env:GITHUB_REF -like 'refs/tags/v*') { $v = $env:GITHUB_REF_NAME.TrimStart('v') }
+          "version=$v" >> $env:GITHUB_OUTPUT
+
+      # ---------------------------------------------------------------- engine
+      - name: Cache engine build
+        id: obscache
+        uses: actions/cache@v4
+        with:
+          path: obs-dist
+          key: obs-${{ env.OBS_VERSION }}-${{ env.VIRTUALCAM_GUID }}-v1
+
+      - name: Checkout OBS Studio ${{ env.OBS_VERSION }}
+        if: steps.obscache.outputs.cache-hit != 'true'
+        uses: actions/checkout@v4
+        with:
+          repository: obsproject/obs-studio
+          ref: ${{ env.OBS_VERSION }}
+          path: obs-studio
+          submodules: recursive
+
+      - name: Rename the virtual camera device
+        if: steps.obscache.outputs.cache-hit != 'true'
+        shell: pwsh
+        run: |
+          $f = "obs-studio/plugins/win-dshow/virtualcam-module/virtualcam-module.cpp"
+          $src = Get-Content $f -Raw
+          if ($src -notmatch 'L"OBS Virtual Camera"') { throw "virtual camera name not found — OBS source changed, review the patch" }
+          $src.Replace('L"OBS Virtual Camera"', 'L"HeartCast Virtual Camera"') | Set-Content -NoNewline $f
+
+      - name: Build libobs + engine plugins
+        if: steps.obscache.outputs.cache-hit != 'true'
+        working-directory: obs-studio
+        shell: pwsh
+        run: |
+          cmake --preset windows-x64 `
+            -DENABLE_FRONTEND=OFF -DENABLE_BROWSER=OFF -DENABLE_SCRIPTING=OFF -DENABLE_WEBSOCKET=OFF `
+            -DVIRTUALCAM_GUID="$env:VIRTUALCAM_GUID"
+          cmake --build --preset windows-x64 --config RelWithDebInfo
+          cmake --install build_x64 --config RelWithDebInfo --prefix "${{ github.workspace }}/obs-dist"
+
+      # ---------------------------------------------------------------- app
+      - name: Install Qt ${{ env.QT_VERSION }}
+        uses: jurplel/install-qt-action@v4
+        with:
+          version: ${{ env.QT_VERSION }}
+          arch: win64_msvc2022_64
+          modules: qtmultimedia qtwebsockets qtimageformats
+          cache: true
+
+      - name: Configure & build HeartCast
+        shell: pwsh
+        run: |
+          $libobs = Get-ChildItem -Recurse obs-dist -Filter libobsConfig.cmake | Select-Object -First 1
+          $pthr   = Get-ChildItem -Recurse obs-dist -Filter w32-pthreadsConfig.cmake | Select-Object -First 1
+          if (-not $libobs) { throw "libobsConfig.cmake not found in obs-dist" }
+          $feed = "https://github.com/${{ github.repository }}/releases/latest/download/update.json"
+          cmake -S heartcast -B hcbuild -G "Visual Studio 18 2026" -A x64 `
+            -DCMAKE_PREFIX_PATH="$env:QT_ROOT_DIR;${{ github.workspace }}/obs-dist" `
+            -Dlibobs_DIR="$($libobs.DirectoryName)" `
+            -Dw32-pthreads_DIR="$($pthr.DirectoryName)" `
+            -DHEARTCAST_UPDATE_FEED="$feed"
+          cmake --build hcbuild --config Release --parallel
+
+      - name: Unit tests
+        shell: pwsh
+        run: |
+          $env:PATH = "$env:QT_ROOT_DIR\bin;${{ github.workspace }}\obs-dist\bin\64bit;$env:PATH"
+          ctest --test-dir hcbuild -C Release --output-on-failure
+
+      # ---------------------------------------------------------------- package
+      - name: Download Microsoft VC++ runtime (for the installer)
+        shell: pwsh
+        run: Invoke-WebRequest https://aka.ms/vs/17/release/vc_redist.x64.exe -OutFile vc_redist.x64.exe
+
+      - name: Assemble distributable folder
+        working-directory: heartcast
+        shell: pwsh
+        run: |
+          ./tools/package_windows.ps1 -ObsInstall "${{ github.workspace }}/obs-dist" `
+            -AppExe "${{ github.workspace }}/hcbuild/bin/Release/HeartCastStudio.exe" `
+            -QtBin "$env:QT_ROOT_DIR/bin" -Out "${{ github.workspace }}/dist/HeartCast" `
+            -VcRedist "${{ github.workspace }}/vc_redist.x64.exe"
+
+      - name: Engine smoke test (best effort — hosted runners have no GPU)
+        continue-on-error: true
+        shell: pwsh
+        run: |
+          $bin = "${{ github.workspace }}/dist/HeartCast/bin/64bit"
+          Copy-Item hcbuild/tests/Release/heartcast_engine_test.exe $bin
+          & "$bin/heartcast_engine_test.exe" -platform windows
+          Remove-Item "$bin/heartcast_engine_test.exe"
+
+      - name: Sign app binaries (Azure Artifact Signing — only if configured)
+        if: env.HAS_SIGNING == 'true'
+        uses: azure/artifact-signing-action@v2
+        with:
+          azure-tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          azure-client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          azure-client-secret: ${{ secrets.AZURE_CLIENT_SECRET }}
+          endpoint: ${{ secrets.ARTIFACT_SIGNING_ENDPOINT }}
+          signing-account-name: ${{ secrets.ARTIFACT_SIGNING_ACCOUNT }}
+          certificate-profile-name: ${{ secrets.ARTIFACT_SIGNING_PROFILE }}
+          files-folder: ${{ github.workspace }}\dist\HeartCast\bin\64bit
+          files-folder-filter: exe
+          file-digest: SHA256
+          timestamp-rfc3161: http://timestamp.acs.microsoft.com
+          timestamp-digest: SHA256
+
+      - name: Build installer (Inno Setup)
+        shell: pwsh
+        run: |
+          choco install innosetup -y --no-progress
+          & "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe" `
+            /DSourceDir="${{ github.workspace }}\dist\HeartCast" /DAppVersion="${{ steps.ver.outputs.version }}" `
+            heartcast\installer\HeartCast.iss
+          Move-Item heartcast\dist\HeartCastStudio-*-Setup.exe dist\
+
+      - name: Sign installer (Azure Artifact Signing — only if configured)
+        if: env.HAS_SIGNING == 'true'
+        uses: azure/artifact-signing-action@v2
+        with:
+          azure-tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          azure-client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          azure-client-secret: ${{ secrets.AZURE_CLIENT_SECRET }}
+          endpoint: ${{ secrets.ARTIFACT_SIGNING_ENDPOINT }}
+          signing-account-name: ${{ secrets.ARTIFACT_SIGNING_ACCOUNT }}
+          certificate-profile-name: ${{ secrets.ARTIFACT_SIGNING_PROFILE }}
+          files-folder: ${{ github.workspace }}\dist
+          files-folder-filter: exe
+          file-digest: SHA256
+          timestamp-rfc3161: http://timestamp.acs.microsoft.com
+          timestamp-digest: SHA256
+
+      - name: Portable ZIP + update feed
+        shell: pwsh
+        run: |
+          $v = "${{ steps.ver.outputs.version }}"
+          Compress-Archive -Path dist\HeartCast\* -DestinationPath "dist\HeartCastStudio-$v-portable.zip"
+          $setup = Get-ChildItem dist\HeartCastStudio-*-Setup.exe | Select-Object -First 1
+          $sha = (Get-FileHash $setup.FullName -Algorithm SHA256).Hash.ToLower()
+          @{ version = $v; url = "https://github.com/${{ github.repository }}/releases/download/v$v/$($setup.Name)";
+             sha256 = $sha; size = $setup.Length; notes = "See the release page for what's new." } |
+            ConvertTo-Json | Set-Content dist\update.json
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: HeartCastStudio-${{ steps.ver.outputs.version }}-windows-x64
+          path: |
+            dist/HeartCastStudio-*-Setup.exe
+            dist/HeartCastStudio-*-portable.zip
+            dist/update.json
+
+      - name: Publish release (version tags only)
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            dist/HeartCastStudio-*-Setup.exe
+            dist/HeartCastStudio-*-portable.zip
+            dist/update.json
+
+  linux-engine-tests:
+    # Fast feedback: the same engine code against Ubuntu's libobs, including a real
+    # multistream to two local RTMP servers.
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - run: |
+          sudo apt-get update
+          sudo apt-get install -y libobs-dev obs-studio qt6-base-dev qt6-multimedia-dev qt6-websockets-dev \
+            libqt6svg6-dev libgl1-mesa-dev mesa-utils xvfb ffmpeg ninja-build
+      - run: cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=RelWithDebInfo && cmake --build build
+      - run: ./build/tests/heartcast_unit_tests -platform offscreen
+      - run: ./tests/run_engine_test.sh build
