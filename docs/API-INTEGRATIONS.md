@@ -7,16 +7,23 @@ something, HeartCast says so and uses the supported alternative: Stream URL + St
 ## Developer credentials: never compiled into the app
 OAuth **Client IDs** are read at runtime from, in order:
 1. Environment variables `HEARTCAST_TWITCH_CLIENT_ID`, `HEARTCAST_GOOGLE_CLIENT_ID`, `HEARTCAST_GOOGLE_CLIENT_SECRET`
-2. `%APPDATA%\HeartCast\developer.json`:
+2. **Entered in the app**: *Settings → Advanced → Developer credentials*. This window also opens
+   automatically when you click **Connect** and something is missing. Values are stored with
+   SecureStore (Windows DPAPI). Whitespace pasted from a web page is stripped.
+3. `%APPDATA%\HeartCast\developer.json`:
 ```json
 { "twitchClientId": "…", "googleClientId": "…apps.googleusercontent.com", "googleClientSecret": "…" }
 ```
-Without credentials, the Connect button reports that a Client ID is needed, and manual keys still work.
+Without credentials you can still stream with a manual Stream URL + Key. Only account features
+(chat, alerts, title/category, automatic keys) need sign-in.
 
 ## Twitch: implemented, needs a Client ID
-1. Go to <https://dev.twitch.tv/console/apps> → *Register Your Application*.
-2. **Client Type: Public**. OAuth Redirect URL: `http://localhost` (unused by the device flow, but required).
-3. Copy the Client ID. No client secret is needed: HeartCast uses the **Device Code Grant**. The user
+1. Turn on two-factor authentication for the Twitch account (Twitch requires it to register apps).
+2. Go to <https://dev.twitch.tv/console/apps> → *Register Your Application*.
+3. Name: anything unique. OAuth Redirect URL: `http://localhost` (unused by the device flow, but
+   required). Category: Broadcaster Suite. **Client Type: Public**. A Confidential app can't finish
+   the device flow without a secret, and HeartCast's error message says so.
+4. Copy the Client ID. No client secret is needed: HeartCast uses the **Device Code Grant**. The user
    opens twitch.tv/activate, enters the code shown in HeartCast and approves.
 
 | Feature | API | Scope |
@@ -38,9 +45,10 @@ Tokens refresh automatically and are revoked on Disconnect. They are stored with
 
 ## YouTube Live: implemented, needs a Google OAuth client
 1. In <https://console.cloud.google.com>, create a project and enable **YouTube Data API v3**.
-2. Set up the OAuth consent screen with scope `https://www.googleapis.com/auth/youtube`. While in
-   "Testing", only listed test users can sign in. Publishing requires Google verification.
-3. *Credentials → Create OAuth client ID → **Desktop app***. Google documents the desktop "client
+2. Set up **Google Auth Platform** (the OAuth consent screen): *Get started* → External, then add
+   your account under *Audience → Test users*. Scope used: `https://www.googleapis.com/auth/youtube`.
+   While in "Testing", only listed test users can sign in. Publishing requires Google verification.
+3. *Clients → Create client → **Desktop app***. Google documents the desktop "client
    secret" as non-confidential. It is still read from config, not compiled in.
 4. Sign-in uses the system browser, a loopback redirect to `127.0.0.1:<random port>`, PKCE (S256)
    and a state check.

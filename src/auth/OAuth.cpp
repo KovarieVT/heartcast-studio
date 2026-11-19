@@ -7,6 +7,8 @@
 #include <QFile>
 #include <QJsonArray>
 #include <QJsonDocument>
+#include <QHash>
+#include <QMutex>
 #include <QNetworkReply>
 #include <QRandomGenerator>
 #include <QTcpSocket>
@@ -52,17 +54,62 @@ static QJsonObject devFile() {
     if (!f.open(QIODevice::ReadOnly)) return {};
     return QJsonDocument::fromJson(f.readAll()).object();
 }
-QString DevCredentials::twitchClientId() {
-    const QString env = qEnvironmentVariable("HEARTCAST_TWITCH_CLIENT_ID");
-    return env.isEmpty() ? devFile().value("twitchClientId").toString() : env;
+static const char *fileKey(DevCredentials::Key k) {
+    switch (k) {
+    case DevCredentials::Key::TwitchClientId: return "twitchClientId";
+    case DevCredentials::Key::GoogleClientId: return "googleClientId";
+    case DevCredentials::Key::GoogleClientSecret: return "googleClientSecret";
+    }
+    return "";
 }
-QString DevCredentials::googleClientId() {
-    const QString env = qEnvironmentVariable("HEARTCAST_GOOGLE_CLIENT_ID");
-    return env.isEmpty() ? devFile().value("googleClientId").toString() : env;
+static QString storeName(DevCredentials::Key k) { return QStringLiteral("developer-") + QLatin1String(fileKey(k)); }
+
+QString DevCredentials::envName(Key k) {
+    switch (k) {
+    case Key::TwitchClientId: return QStringLiteral("HEARTCAST_TWITCH_CLIENT_ID");
+    case Key::GoogleClientId: return QStringLiteral("HEARTCAST_GOOGLE_CLIENT_ID");
+    case Key::GoogleClientSecret: return QStringLiteral("HEARTCAST_GOOGLE_CLIENT_SECRET");
+    }
+    return {};
 }
-QString DevCredentials::googleClientSecret() {
-    const QString env = qEnvironmentVariable("HEARTCAST_GOOGLE_CLIENT_SECRET");
-    return env.isEmpty() ? devFile().value("googleClientSecret").toString() : env;
+
+// Values are cached after the first lookup (Helix calls read the Client ID on every
+// request; DPAPI decryption + a file read each time would be wasteful). set() clears it.
+static QMutex s_credMutex;
+static QHash<int, QPair<QString, DevCredentials::Source>> s_credCache;
+
+static QPair<QString, DevCredentials::Source> resolve(DevCredentials::Key k) {
+    QMutexLocker lock(&s_credMutex);
+    const auto it = s_credCache.constFind(int(k));
+    if (it != s_credCache.constEnd()) return *it;
+    QPair<QString, DevCredentials::Source> r{qEnvironmentVariable(qPrintable(DevCredentials::envName(k))).trimmed(),
+                                             DevCredentials::Source::Environment};
+    if (r.first.isEmpty()) r = {QString::fromUtf8(SecureStore::get(storeName(k))).trimmed(), DevCredentials::Source::App};
+    if (r.first.isEmpty()) r = {devFile().value(QLatin1String(fileKey(k))).toString().trimmed(), DevCredentials::Source::File};
+    if (r.first.isEmpty()) r.second = DevCredentials::Source::None;
+    s_credCache.insert(int(k), r);
+    return r;
+}
+
+QString DevCredentials::get(Key k) { return resolve(k).first; }
+DevCredentials::Source DevCredentials::source(Key k) { return resolve(k).second; }
+
+bool DevCredentials::set(Key k, const QString &value) {
+    const QString v = value.trimmed();
+    bool ok = true;
+    if (v.isEmpty()) SecureStore::remove(storeName(k));
+    else ok = SecureStore::put(storeName(k), v.toUtf8());
+    QMutexLocker lock(&s_credMutex);
+    s_credCache.remove(int(k));
+    return ok;
+}
+
+void DevCredentials::reload() { QMutexLocker lock(&s_credMutex); s_credCache.clear(); }
+
+bool DevCredentials::ready(const QString &platformId) {
+    if (platformId == QLatin1String("twitch")) return !twitchClientId().isEmpty();
+    if (platformId == QLatin1String("youtube")) return !googleClientId().isEmpty() && !googleClientSecret().isEmpty();
+    return true;   // platforms without OAuth need nothing
 }
 
 static QNetworkRequest formRequest(const QString &url) {
@@ -81,7 +128,7 @@ DeviceCodeFlow::DeviceCodeFlow(QNetworkAccessManager *nam, QString deviceUrl, QS
 }
 
 void DeviceCodeFlow::start() {
-    if (m_clientId.isEmpty()) { Q_EMIT failed(tr("No developer Client ID configured. See API-INTEGRATIONS.md.")); return; }
+    if (m_clientId.isEmpty()) { Q_EMIT failed(tr("No Twitch Client ID yet. Add one in Settings → Advanced → Developer credentials.")); return; }
     QUrlQuery q;
     q.addQueryItem("client_id", m_clientId);
     q.addQueryItem("scopes", m_scopes.join(' '));
@@ -91,7 +138,11 @@ void DeviceCodeFlow::start() {
         rep->deleteLater();
         const QJsonObject o = QJsonDocument::fromJson(rep->readAll()).object();
         if (rep->error() != QNetworkReply::NoError || !o.contains("device_code")) {
-            Q_EMIT failed(tr("Authorization request failed: %1").arg(o.value("message").toString(rep->errorString())));
+            const QString msg = o.value("message").toString(rep->errorString());
+            QString hint;
+            if (msg.contains("client", Qt::CaseInsensitive))
+                hint = tr(" — check the Client ID in Settings → Advanced → Developer credentials. The Twitch app's Client Type must be Public.");
+            Q_EMIT failed(tr("Authorization request failed: %1").arg(msg) + hint);
             return;
         }
         m_deviceCode = o.value("device_code").toString();
@@ -122,7 +173,13 @@ void DeviceCodeFlow::poll() {
         if (msg.contains("pending")) return;                       // user hasn't approved yet
         if (msg.contains("slow_down")) { m_intervalMs += 5000; m_poll.setInterval(m_intervalMs); return; }
         m_poll.stop();
-        Q_EMIT failed(msg.contains("denied") ? tr("Access was denied in the browser.") : tr("Sign-in failed: %1").arg(msg));
+        if (msg.contains("denied")) { Q_EMIT failed(tr("Access was denied in the browser.")); return; }
+        // A Confidential Twitch app can't finish the device flow without a secret.
+        if (msg.contains("secret", Qt::CaseInsensitive) || msg.contains("client", Qt::CaseInsensitive)) {
+            Q_EMIT failed(tr("Sign-in failed: %1 — in the Twitch Developer Console, the app's Client Type must be Public.").arg(msg));
+            return;
+        }
+        Q_EMIT failed(tr("Sign-in failed: %1").arg(msg));
     });
 }
 
@@ -148,7 +205,7 @@ QByteArray LoopbackPkceFlow::challengeFor(const QByteArray &verifier) {
 }
 
 void LoopbackPkceFlow::start() {
-    if (m_clientId.isEmpty()) { Q_EMIT failed(tr("No developer Client ID configured. See API-INTEGRATIONS.md.")); return; }
+    if (m_clientId.isEmpty() || m_clientSecret.isEmpty()) { Q_EMIT failed(tr("No Google Client ID / secret yet. Add them in Settings → Advanced → Developer credentials.")); return; }
     if (!m_server.listen(QHostAddress::LocalHost, 0)) { Q_EMIT failed(tr("Could not open local sign-in listener.")); return; }
     m_redirect = QStringLiteral("http://127.0.0.1:%1").arg(m_server.serverPort());
     m_verifier = makeVerifier();

@@ -56,7 +56,7 @@ Legend: ✅ implemented and exercised by automated tests against real libobs ·
 | Native widgets: alerts (queue, animation, sound in stream), chat box, event list, labels, goals, countdown, stopwatch, social/sponsor panels, viewer count, text panel | ✅ / 🟢 | Drawn natively and pushed as video frames; no browser source |
 | 8 original overlay packs | 🟢 | Cotton Candy, Strawberry Milk, Mint Macaron, Pastel Dream, Pink Galaxy, Cherry Blossom, Magical Girl, Soft Academia |
 | Media library: folders, search, filter, tags, import, drag-and-drop, starter assets | 🟢 | |
-| Twitch: OAuth device flow, stream key, title/category, IRC chat, EventSub alerts, moderation | 🔑 | Needs a Twitch Client ID ([API-INTEGRATIONS](docs/API-INTEGRATIONS.md)). Not exercised against live Twitch here |
+| Twitch: OAuth device flow, stream key, title/category, IRC chat, EventSub alerts, moderation | 🔑 | Needs a free Twitch Client ID, pasted in Settings → Advanced → Developer credentials ([API-INTEGRATIONS](docs/API-INTEGRATIONS.md)). Not exercised against live Twitch here |
 | YouTube: OAuth PKCE, broadcast creation and binding, title/description, chat, Super Chat/membership alerts, moderation | 🔑 | Needs a Google OAuth client. Not exercised against live YouTube here |
 | Kick, TikTok LIVE, Facebook, Instagram, X, Trovo, custom RTMP/RTMPS/SRT | 🚧 | Stream URL + key (what these platforms allow third-party apps to use) |
 | Unified chat filters (blocked words, flood, repeats, caps) | ✅ | |

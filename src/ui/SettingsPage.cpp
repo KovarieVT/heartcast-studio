@@ -6,6 +6,7 @@
 #include "core/Paths.h"
 #include "core/Settings.h"
 #include "engine/Engine.h"
+#include "ui/DeveloperCredentialsDialog.h"
 #include "ui/StudioDocks.h"
 #include "updater/Updater.h"
 
@@ -303,7 +304,12 @@ SettingsPage::SettingsPage(QWidget *parent) : QWidget(parent) {
         if (QMessageBox::question(this, tr("Reset"), tr("Reset every setting? Scenes, recordings and saved keys are kept.")) == QMessageBox::Yes) { Settings::instance().resetToDefaults(); load(); }
     });
     for (auto *b : {logs, crashes, cache, exp, imp, reset}) adf->addRow(b);
-    auto *dev = new QLabel(tr("Platform developer credentials (Client IDs) are read from environment variables or %1 — see API-INTEGRATIONS.md. They are never compiled into the app.")
+    auto *devBtn = new QPushButton(tr("Developer credentials (Twitch / YouTube sign-in)…"));
+    devBtn->setProperty("accent", "mint");
+    connect(devBtn, &QPushButton::clicked, this, [this] { DeveloperCredentialsDialog(QString(), this).exec(); });
+    adf->addRow(devBtn);
+    auto *dev = new QLabel(tr("Connecting Twitch or YouTube needs a free Client ID that you register yourself. Paste it with the button above "
+                              "(or set environment variables / %1). Credentials are never compiled into the app.")
                            .arg(QDir::toNativeSeparators(Paths::dataRoot() + "/developer.json")));
     dev->setWordWrap(true); dev->setObjectName("Muted");
     adf->addRow(dev);

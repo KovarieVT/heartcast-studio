@@ -1,4 +1,5 @@
 #include <QtTest>
+#include <QStandardPaths>
 #include <QTemporaryDir>
 
 #include "auth/OAuth.h"
@@ -17,6 +18,9 @@ private Q_SLOTS:
     void initTestCase() {
         Q_INIT_RESOURCE(resources);
         QVERIFY(m_tmp.isValid());
+        // Keep SecureStore / developer.json writes inside the test sandbox.
+        QStandardPaths::setTestModeEnabled(true);
+        qputenv("APPDATA", m_tmp.path().toLocal8Bit());
         Settings::instance().load(m_tmp.filePath("config.json"));
     }
 
@@ -134,6 +138,43 @@ private Q_SLOTS:
         Settings::instance().set("hotkeys.t.one", QString("Ctrl+Shift+F9"));
         QVERIFY(hk.conflictFor("t.two", QKeySequence("Ctrl+Shift+F9")).contains("One"));
         QVERIFY(hk.conflictFor("t.two", QKeySequence("Ctrl+Shift+F10")).isEmpty());
+    }
+
+    void devCredentialsPrecedence() {
+        using K = DevCredentials::Key;
+        using S = DevCredentials::Source;
+        qunsetenv("HEARTCAST_TWITCH_CLIENT_ID");
+        QVERIFY(DevCredentials::set(K::TwitchClientId, QString()));
+        QCOMPARE(DevCredentials::source(K::TwitchClientId), S::None);
+        QVERIFY(!DevCredentials::ready("twitch"));
+        QVERIFY(DevCredentials::ready("kick"));                       // manual-key platforms need nothing
+
+        // Entered in the app: trimmed, stored in SecureStore, cache refreshed by set().
+        QVERIFY(DevCredentials::set(K::TwitchClientId, "  abcdefghij0123456789klmnopqrst \n"));
+        QCOMPARE(DevCredentials::twitchClientId(), QStringLiteral("abcdefghij0123456789klmnopqrst"));
+        QCOMPARE(DevCredentials::source(K::TwitchClientId), S::App);
+        QVERIFY(DevCredentials::ready("twitch"));
+
+        // An environment variable always wins.
+        qputenv("HEARTCAST_TWITCH_CLIENT_ID", "fromenvironment0000000000000000");
+        DevCredentials::reload();
+        QCOMPARE(DevCredentials::twitchClientId(), QStringLiteral("fromenvironment0000000000000000"));
+        QCOMPARE(DevCredentials::source(K::TwitchClientId), S::Environment);
+        qunsetenv("HEARTCAST_TWITCH_CLIENT_ID");
+        DevCredentials::reload();
+        QCOMPARE(DevCredentials::source(K::TwitchClientId), S::App);
+
+        // YouTube needs both the client ID and the Desktop-app secret.
+        qunsetenv("HEARTCAST_GOOGLE_CLIENT_ID");
+        qunsetenv("HEARTCAST_GOOGLE_CLIENT_SECRET");
+        QVERIFY(DevCredentials::set(K::GoogleClientId, "123-abc.apps.googleusercontent.com"));
+        QVERIFY(DevCredentials::set(K::GoogleClientSecret, QString()));
+        QVERIFY(!DevCredentials::ready("youtube"));
+        QVERIFY(DevCredentials::set(K::GoogleClientSecret, "GOCSPX-test"));
+        QVERIFY(DevCredentials::ready("youtube"));
+
+        for (K k : {K::TwitchClientId, K::GoogleClientId, K::GoogleClientSecret}) QVERIFY(DevCredentials::set(k, QString()));
+        QVERIFY(!DevCredentials::ready("twitch"));
     }
 
     void updaterVersionCompare() {

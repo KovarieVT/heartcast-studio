@@ -23,13 +23,24 @@ struct TokenSet {
 };
 
 // Developer credentials are NEVER compiled into release binaries.
-// Order: environment variable → %APPDATA%/HeartCast/developer.json (user-provided).
+// Order: environment variable → entered in HeartCast (Settings → Advanced → Developer
+// credentials; stored with SecureStore/DPAPI) → %APPDATA%/HeartCast/developer.json.
 // Client IDs are public identifiers; a "client secret" is only used for Google's
 // *installed app* clients, which Google documents as non-confidential.
 struct DevCredentials {
-    static QString twitchClientId();
-    static QString googleClientId();
-    static QString googleClientSecret();
+    enum class Key { TwitchClientId, GoogleClientId, GoogleClientSecret };
+    enum class Source { None, Environment, App, File };
+
+    static QString get(Key k);
+    static Source source(Key k);
+    static QString envName(Key k);
+    static bool set(Key k, const QString &value);      // empty value removes the in-app entry
+    static bool ready(const QString &platformId);     // "twitch" / "youtube": everything that sign-in needs is present
+    static void reload();                              // forget cached values (e.g. developer.json edited)
+
+    static QString twitchClientId() { return get(Key::TwitchClientId); }
+    static QString googleClientId() { return get(Key::GoogleClientId); }
+    static QString googleClientSecret() { return get(Key::GoogleClientSecret); }
 };
 
 // RFC 8628 device authorization grant — used for Twitch (public client, no secret).

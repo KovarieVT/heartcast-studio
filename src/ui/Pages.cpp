@@ -1,4 +1,5 @@
 #include "ui/Pages.h"
+#include "ui/DeveloperCredentialsDialog.h"
 #include "app/Theme.h"
 #include "auth/SecureStore.h"
 #include "core/Paths.h"
@@ -381,7 +382,11 @@ void StreamManagerPage::reloadAccounts() {
         auto *lbl = new QLabel(platformBadge(id) + (a && a->isConnected() ? " — " + a->accountName().toHtmlEscaped() : tr(" — not connected")));
         h->addWidget(lbl, 1);
         auto *btn = a && a->isConnected() ? new QPushButton(tr("Disconnect")) : accentButton(tr("Connect"), "mint");
-        connect(btn, &QPushButton::clicked, this, [a] { if (!a) return; a->isConnected() ? a->disconnectAccount() : a->connectAccount(); });
+        connect(btn, &QPushButton::clicked, this, [this, a, id] {
+            if (!a) return;
+            if (a->isConnected()) { a->disconnectAccount(); return; }
+            if (ensureDevCredentials(id, this)) a->connectAccount();
+        });
         h->addWidget(btn);
         m_accounts->addWidget(row);
     }

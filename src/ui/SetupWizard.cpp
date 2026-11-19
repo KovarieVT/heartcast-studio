@@ -1,4 +1,5 @@
 #include "ui/SetupWizard.h"
+#include "ui/DeveloperCredentialsDialog.h"
 #include "app/Theme.h"
 #include "core/HardwareInfo.h"
 #include "core/Settings.h"
@@ -244,8 +245,15 @@ SetupWizard::SetupWizard(QWidget *parent) : QWizard(parent) {
         help->setText(none ? QString() : p.keyHelp + (p.limitations.isEmpty() ? QString() : "\n\n" + p.limitations));
     };
     connect(plat, &QComboBox::currentIndexChanged, pl, update);
-    connect(connectBtn, &QPushButton::clicked, pl, [plat, help] {
-        if (auto *a = PlatformHub::instance().account(plat->currentData().toString())) a->connectAccount();
+    connect(connectBtn, &QPushButton::clicked, pl, [plat, help, pl] {
+        const QString id = plat->currentData().toString();
+        PlatformAccount *a = PlatformHub::instance().account(id);
+        if (!a) return;
+        if (!ensureDevCredentials(id, pl)) {
+            help->setText(tr("Connecting needs a developer Client ID first. You can skip that for now: paste your stream key above and connect later from Stream Manager."));
+            return;
+        }
+        a->connectAccount();
         help->setText(tr("Finish signing in in your browser. Your password is never entered in HeartCast."));
     });
     connect(&PlatformHub::instance(), &PlatformHub::deviceCode, pl, [help](const QString &, const QString &code, const QString &url) {

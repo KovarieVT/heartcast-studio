@@ -44,7 +44,10 @@ Your layout is saved automatically.
    text tells you where to find them. Keys are encrypted with Windows DPAPI.
 2. Twitch and YouTube can be **connected** instead. Sign in happens in your browser (we never see
    your password), and HeartCast fetches the server and key, updates your title and category, and
-   brings in chat and alerts.
+   brings in chat and alerts. The first time you click **Connect**, HeartCast asks for a free
+   **Client ID** that you register yourself (Twitch Developer Console, or Google Cloud for YouTube).
+   The window shows every step and has buttons that open the right console. You can also change it
+   later in **Settings → Advanced → Developer credentials**.
 3. Add more destinations to **multistream**. Destinations at the default bitrate share one encode.
    Tick "different bitrate" only when a platform needs a lower one. The page shows how much upload
    bandwidth you need.
