@@ -112,6 +112,12 @@ bool Engine::startup(const std::function<void(int, const QString &)> &progress) 
     }
 #endif
 
+#ifdef _WIN32
+    // libobs resolves its data (shaders, "../../data/libobs") relative to the working
+    // directory on Windows, exactly like OBS — so run from the executable's folder no matter
+    // how we were launched (shortcut, Explorer, command line, updater restart).
+    QDir::setCurrent(QCoreApplication::applicationDirPath());
+#endif
     report(5, tr("Waking up the engine…"));
     const QByteArray cfg = QDir::toNativeSeparators(Paths::ensure(Paths::dataRoot() + "/obs-modules")).toUtf8();
     if (!obs_startup("en-US", cfg.constData(), nullptr)) {

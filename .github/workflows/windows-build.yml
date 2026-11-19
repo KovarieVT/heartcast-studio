@@ -152,15 +152,17 @@ jobs:
             -QtBin "$env:QT_ROOT_DIR/bin" -Out "${{ github.workspace }}/dist/HeartCast" `
             -VcRedist "${{ github.workspace }}/vc_redist.x64.exe"
 
-      - name: Engine smoke test (best effort — hosted runners have no GPU)
-        continue-on-error: true
-        timeout-minutes: 8
+      - name: Engine test on Windows (D3D11 via Microsoft Basic Render Driver)
+        timeout-minutes: 10
         shell: pwsh
         run: |
+          $ErrorActionPreference = 'Stop'; $PSNativeCommandUseErrorActionPreference = $true
+          # Runs the packaged engine exactly as shipped: real libobs, D3D11, plugins, recording,
+          # replay buffer, scene persistence, error reporting. (Multistream is covered on Linux.)
           $bin = "${{ github.workspace }}/dist/HeartCast/bin/64bit"
           Copy-Item hcbuild/tests/Release/heartcast_engine_test.exe $bin
-          & "$bin/heartcast_engine_test.exe" -platform windows
-          Remove-Item "$bin/heartcast_engine_test.exe"
+          try { & "$bin/heartcast_engine_test.exe" -platform windows }
+          finally { Remove-Item "$bin/heartcast_engine_test.exe" -ErrorAction SilentlyContinue }
 
       - name: Sign app binaries (Azure Artifact Signing — only if configured)
         if: env.HAS_SIGNING == 'true'
