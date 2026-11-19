@@ -153,16 +153,34 @@ jobs:
             -VcRedist "${{ github.workspace }}/vc_redist.x64.exe"
 
       - name: Engine test on Windows (D3D11 via Microsoft Basic Render Driver)
-        timeout-minutes: 10
+        timeout-minutes: 15
         shell: pwsh
         run: |
-          $ErrorActionPreference = 'Stop'; $PSNativeCommandUseErrorActionPreference = $true
           # Runs the packaged engine exactly as shipped: real libobs, D3D11, plugins, recording,
           # replay buffer, scene persistence, error reporting. (Multistream is covered on Linux.)
+          # Full page heap + cdb turn any memory corruption into an exact stack trace.
           $bin = "${{ github.workspace }}/dist/HeartCast/bin/64bit"
-          Copy-Item hcbuild/tests/Release/heartcast_engine_test.exe $bin
-          try { & "$bin/heartcast_engine_test.exe" -platform windows }
-          finally { Remove-Item "$bin/heartcast_engine_test.exe" -ErrorAction SilentlyContinue }
+          Copy-Item hcbuild/tests/Release/heartcast_engine_test.exe, hcbuild/tests/Release/heartcast_engine_test.pdb $bin
+          $log = "$env:RUNNER_TEMP\engine-test.txt"
+          $dbg = "${env:ProgramFiles(x86)}\Windows Kits\10\Debuggers\x64"
+          Push-Location $bin
+          try {
+            if (Test-Path "$dbg\cdb.exe") {
+              & "$dbg\gflags.exe" /p /enable heartcast_engine_test.exe /full | Out-Null
+              $env:_NT_SYMBOL_PATH = "$bin;${{ github.workspace }}\obs-dist\bin\64bit;${{ github.workspace }}\dist\HeartCast\obs-plugins\64bit;${{ github.workspace }}\hcbuild\bin\Release"
+              & "$dbg\cdb.exe" -g -G -lines -c ".echo ===== CRASH =====; .ecxr; kn 60; q" .\heartcast_engine_test.exe -platform windows -o "$log,txt" -o "-,txt"
+              & "$dbg\gflags.exe" /p /disable heartcast_engine_test.exe | Out-Null
+            } else {
+              & .\heartcast_engine_test.exe -platform windows -o "$log,txt"
+            }
+          } finally {
+            Pop-Location
+            Remove-Item "$bin/heartcast_engine_test.exe", "$bin/heartcast_engine_test.pdb" -ErrorAction SilentlyContinue
+          }
+          Write-Host "===== test log ====="
+          if (Test-Path $log) { Get-Content $log } else { Write-Host "(no log written)" }
+          $text = if (Test-Path $log) { Get-Content $log -Raw } else { "" }
+          if ($text -notmatch 'Totals: \d+ passed, 0 failed') { throw "Windows engine test failed or crashed — see stack trace and log above" }
 
       - name: Sign app binaries (Azure Artifact Signing — only if configured)
         if: env.HAS_SIGNING == 'true'

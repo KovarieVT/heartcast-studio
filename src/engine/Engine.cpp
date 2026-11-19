@@ -145,8 +145,14 @@ bool Engine::startup(const std::function<void(int, const QString &)> &progress) 
     const QString appDir = QCoreApplication::applicationDirPath();
     const QString pluginBin = QDir::cleanPath(appDir + "/../../obs-plugins/64bit");
     const QString pluginData = QDir::cleanPath(appDir + "/../../data/obs-plugins/%module%");
+#ifndef _WIN32
+    // On Windows libobs' built-in search paths are "../../obs-plugins/64bit" relative to the
+    // working directory (set above), so adding them again would load every module twice.
     if (QDir(pluginBin).exists())
         obs_add_module_path(pluginBin.toUtf8().constData(), pluginData.toUtf8().constData());
+#else
+    Q_UNUSED(pluginBin); Q_UNUSED(pluginData);
+#endif
     // User plugins (opt-in, see PluginManager)
     const QString userBin = Paths::plugins() + "/obs/bin";
     if (QDir(userBin).exists() && Settings::instance().b("plugins.allowUnsigned"))

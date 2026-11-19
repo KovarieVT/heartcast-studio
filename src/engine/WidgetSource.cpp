@@ -35,11 +35,11 @@ void WidgetRegistry::remove(obs_source_t *src) {
 }
 
 void WidgetRegistry::pushFrame(obs_source_t *src, const QImage &in) {
-    {
-        QMutexLocker l(&m_mutex);
-        if (!m_widgets.contains(src)) return;   // destroyed meanwhile
-    }
     const QImage img = in.format() == QImage::Format_ARGB32 ? in : in.convertToFormat(QImage::Format_ARGB32);
+    // Hold the lock for the whole push: the source's destroy callback (libobs destruction
+    // thread) takes the same lock in remove(), so it cannot be freed while we hand it a frame.
+    QMutexLocker l(&m_mutex);
+    if (!m_widgets.contains(src)) return;   // already destroyed
     obs_source_frame f{};
     f.data[0] = const_cast<uint8_t *>(img.constBits());
     f.linesize[0] = uint32_t(img.bytesPerLine());
