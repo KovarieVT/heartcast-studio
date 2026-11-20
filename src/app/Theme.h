@@ -4,24 +4,40 @@
 
 class QApplication;
 
+// "Nocturne": KovaLive!'s gothic theme. Near-black surfaces, bone text, crimson
+// accents and old-gold ornaments. Headings use Cinzel, body text uses Inter
+// (both bundled, SIL Open Font License).
 namespace bc::theme {
 
-inline const QColor CottonCandy {0xF5, 0xA6, 0xC8};
-inline const QColor PastelRose  {0xF7, 0xC4, 0xD8};
-inline const QColor BabyPink    {0xFF, 0xDC, 0xEB};
-inline const QColor PastelMint  {0xA9, 0xE5, 0xD0};
-inline const QColor SoftMint    {0xD2, 0xF3, 0xE7};
-inline const QColor PearlWhite  {0xFF, 0xF9, 0xFC};
-inline const QColor Lavender    {0xDC, 0xCC, 0xF7};
-inline const QColor SoftLilac   {0xED, 0xE4, 0xFF};
-inline const QColor BlushPink   {0xE9, 0x8D, 0xB7};
-inline const QColor DeepRose    {0xC9, 0x6F, 0x9D};
-inline const QColor MintAccent  {0x77, 0xCD, 0xB1};
-inline const QColor Charcoal    {0x51, 0x48, 0x52};
-inline const QColor LightGray   {0xF5, 0xF1, 0xF5};
+inline const QColor Void      {0x0B, 0x0A, 0x0D};   // window background
+inline const QColor Crypt     {0x14, 0x11, 0x18};   // panels
+inline const QColor Obsidian  {0x1D, 0x19, 0x22};   // raised surfaces, inputs
+inline const QColor Shadow    {0x2E, 0x27, 0x33};   // borders
+inline const QColor Smoke     {0x4A, 0x40, 0x50};   // strong borders, disabled
+inline const QColor Ash       {0x8E, 0x84, 0x92};   // muted text
+inline const QColor Bone      {0xE6, 0xDE, 0xD2};   // text
+inline const QColor Parchment {0xF3, 0xEC, 0xDF};   // bright text
+inline const QColor Crimson   {0x9E, 0x1B, 0x32};   // primary accent (default)
+inline const QColor Blood     {0xC8, 0x28, 0x3F};   // live, hover, alerts
+inline const QColor Garnet    {0x5C, 0x0E, 0x1D};   // deep accent
+inline const QColor Amethyst  {0x6E, 0x3B, 0x8A};   // secondary accent
+inline const QColor Plum      {0x33, 0x1A, 0x40};   // secondary deep
+inline const QColor Silver    {0xB4, 0xAE, 0xB8};   // moonlight, ornaments
+inline const QColor OldGold   {0xB8, 0x93, 0x5A};   // headings, filigree
+inline const QColor Verdigris {0x3F, 0x8F, 0x7A};   // success
+inline const QColor Amber     {0xC6, 0x8E, 0x2F};   // warning
 
-// Loads kawaii.qss, substitutes palette tokens, applies to the app.
-// `accent` overrides the primary pink; `fontPt` scales the base font.
+inline constexpr const char *kThemeId = "nocturne";
+inline constexpr const char *kDefaultAccent = "#9E1B32";
+
+// Bundled font families (registered by loadFonts()).
+QString displayFamily();      // Cinzel: headings, dock titles
+QString decorativeFamily();   // Cinzel Decorative: wordmark, splash
+QString bodyFamily();         // Inter: everything else
+void loadFonts();
+
+// Loads the stylesheet, substitutes palette tokens, applies it to the app.
+// `accent` overrides the crimson accent; `fontPt` scales the base font.
 void apply(QApplication &app, const QString &accent = {}, int fontPt = 10);
 
 } // namespace bc::theme

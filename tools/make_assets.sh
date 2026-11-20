@@ -1,47 +1,42 @@
 #!/usr/bin/env bash
-# Regenerates all raster branding from resources/icons/logo.svg.
-# Needs: rsvg-convert (librsvg2-bin), ImageMagick 6/7.
+# Regenerates all raster branding and the bundled stinger videos from the same
+# vector code the app draws with (src/ui/GothicPainter.cpp, tools/art/render_art.cpp).
+# Needs: a build with -DKOVALIVE_BUILD_ART_TOOL=ON, ImageMagick 6/7, ffmpeg with libvpx-vp9.
+#
+#   tools/make_assets.sh <build-dir>
 set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
-SVG="$ROOT/resources/icons/logo.svg"
+BUILD="${1:?usage: make_assets.sh <build-dir with render_art>}"
 ICO_DIR="$ROOT/resources/windows"
 INST="$ROOT/installer/assets"
 TMP="$(mktemp -d)"
 IM=$(command -v magick || command -v convert)
 
-for s in 16 24 32 48 64 128 256 512; do
-  rsvg-convert -w $s -h $s "$SVG" -o "$TMP/logo_$s.png"
-done
+QT_QPA_PLATFORM=offscreen "$BUILD/render_art" "$TMP"   # exits non-zero if a stinger fails its coverage check
+
+cp "$TMP/logo.svg" "$ROOT/resources/icons/logo.svg"
 cp "$TMP/logo_256.png" "$ROOT/resources/icons/logo_256.png"
 cp "$TMP/logo_512.png" "$ROOT/resources/icons/logo_512.png"
 
 # Multi-resolution Windows icon (exe, taskbar, window, shortcut, installer)
-$IM "$TMP"/logo_{16,24,32,48,64,128,256}.png "$ICO_DIR/app.ico"
+$IM "$TMP"/logo_{16,20,24,32,40,48,64,96,128,256}.png "$ICO_DIR/app.ico"
 cp "$ICO_DIR/app.ico" "$INST/setup.ico"
 
-# Inno Setup wizard side image (several DPI sizes) — pastel gradient + logo + sparkles
-make_side () { # w h logo
-  local w=$1 h=$2 l=$3 out=$4
-  $IM -size ${w}x${h} gradient:'#FFDCEB'-'#D2F3E7' \
-     \( "$TMP/logo_512.png" -resize ${l}x${l} \) -gravity center -geometry +0-$((h/8)) -composite \
-     -fill '#FFFFFF' -stroke '#DCCCF7' -strokewidth 1 \
-     -draw "circle $((w/6)),$((h/8)) $((w/6+3)),$((h/8))" \
-     -draw "circle $((w*5/6)),$((h*3/10)) $((w*5/6+4)),$((h*3/10))" \
-     -draw "circle $((w/4)),$((h*4/5)) $((w/4+3)),$((h*4/5))" \
-     -fill '#E98DB7' -stroke none -draw "circle $((w*3/4)),$((h*7/8)) $((w*3/4+3)),$((h*7/8))" \
-     -type TrueColor BMP3:"$out"
-}
-make_side 164 314 120 "$INST/wizard_side_100.bmp"
-make_side 205 392 150 "$INST/wizard_side_125.bmp"
-make_side 246 471 180 "$INST/wizard_side_150.bmp"
-make_side 328 628 240 "$INST/wizard_side_200.bmp"
+# Inno Setup wizard images at 100/125/150/200 % DPI (24-bit BMP)
+i=0; for w in 164 205 246 328; do pct=(100 125 150 200); $IM "$TMP/wizard_side_$w.png" -type TrueColor BMP3:"$INST/wizard_side_${pct[$i]}.bmp"; i=$((i+1)); done
+i=0; for s in 55 69 83 110; do pct=(100 125 150 200); $IM "$TMP/wizard_small_$s.png" -type TrueColor BMP3:"$INST/wizard_small_${pct[$i]}.bmp"; i=$((i+1)); done
 
-make_small () { local s=$1 out=$2
-  $IM -size ${s}x${s} xc:'#FFF9FC' \( "$TMP/logo_256.png" -resize $((s-4))x$((s-4)) \) -gravity center -composite -type TrueColor BMP3:"$out"; }
-make_small 55 "$INST/wizard_small_100.bmp"
-make_small 69 "$INST/wizard_small_125.bmp"
-make_small 83 "$INST/wizard_small_150.bmp"
-make_small 110 "$INST/wizard_small_200.bmp"
+# Stingers: VP9 with alpha (OBS decodes these with libvpx when alpha_mode=1).
+# render_art already verified that each one fully covers the screen at its cut point.
+rm -f "$ROOT"/resources/stingers/*.webm
+cp "$TMP/stingers/stingers.json" "$ROOT/resources/stingers/stingers.json"
+python3 -c 'import json,sys; [print(s["id"], s["file"]) for s in json.load(open(sys.argv[1]))["stingers"]]' "$TMP/stingers/stingers.json" |
+while read -r id file; do
+  ffmpeg -nostdin -hide_banner -loglevel error -y -framerate 30 -i "$TMP/stingers/$id/f%03d.png" \
+    -c:v libvpx-vp9 -pix_fmt yuva420p -b:v 0 -crf 34 -deadline good -cpu-used 2 -row-mt 1 \
+    -auto-alt-ref 0 -metadata:s:v:0 alpha_mode=1 "$ROOT/resources/stingers/$file"
+  echo "encoded $file"
+done
 
 rm -rf "$TMP"
 echo "Assets regenerated."

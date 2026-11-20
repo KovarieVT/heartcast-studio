@@ -33,7 +33,7 @@ static long long toObsColor(const QColor &c) {
 static void styleSwatch(QPushButton *b, const QColor &c) {
     b->setText(c.name(QColor::HexArgb).toUpper());
     b->setStyleSheet(QStringLiteral("QPushButton{background:%1;color:%2;}").arg(c.name(),
-                     c.lightness() > 140 ? "#514852" : "#FFFFFF"));
+                     c.lightness() > 140 ? "#0B0A0D" : "#FFFFFF"));
 }
 
 PropertiesView::PropertiesView(obs_source_t *source, QWidget *parent) : QScrollArea(parent), m_source(source) {
@@ -94,7 +94,7 @@ void PropertiesView::rebuild() {
     form->setFieldGrowthPolicy(QFormLayout::AllNonFixedFieldsGrow);
     if (!buildGradientEditor(form)) {
         if (!m_props) {
-            form->addRow(new QLabel(tr("This item has no settings ✦")));
+            form->addRow(new QLabel(tr("This item has no settings.")));
         } else {
             for (obs_property_t *p = obs_properties_first(m_props); p; obs_property_next(&p)) addProperty(p, form);
         }
@@ -257,7 +257,7 @@ void PropertiesView::addProperty(obs_property_t *p, QFormLayout *form) {
         btn->setText(describe(f));
         connect(btn, &QPushButton::clicked, this, [this, btn, key, name, describe] {
             OBSDataAutoRelease cur = obs_data_get_obj(m_settings, key);
-            QFont start(cur ? QString::fromUtf8(obs_data_get_string(cur, "face")) : "Nunito",
+            QFont start(cur ? QString::fromUtf8(obs_data_get_string(cur, "face")) : "Palatino Linotype",
                         cur ? int(obs_data_get_int(cur, "size")) : 48);
             bool ok = false;
             const QFont font = QFontDialog::getFont(&ok, start, this);
@@ -337,7 +337,7 @@ PropertiesDialog::PropertiesDialog(obs_source_t *source, QWidget *parent) : QDia
     auto *lay = new QVBoxLayout(this);
     lay->addWidget(new PropertiesView(source, this), 1);
     auto *bb = new QDialogButtonBox(QDialogButtonBox::Ok | QDialogButtonBox::Cancel);
-    bb->button(QDialogButtonBox::Ok)->setProperty("accent", "pink");
+    bb->button(QDialogButtonBox::Ok)->setProperty("accent", "primary");
     connect(bb, &QDialogButtonBox::accepted, this, &QDialog::accept);
     connect(bb, &QDialogButtonBox::rejected, this, &QDialog::reject);
     lay->addWidget(bb);

@@ -37,7 +37,7 @@ void YouTubeAccount::connectAccount() {
         m_tokens = t;
         m_tokens.save(kTokenName);
         loadChannel([this](bool ok) {
-            if (ok) Q_EMIT status(tr("Connected to YouTube: %1 ♡").arg(m_channelTitle));
+            if (ok) Q_EMIT status(tr("Connected to YouTube: %1").arg(m_channelTitle));
             else Q_EMIT error(tr("Signed in, but this Google account has no YouTube channel (or live streaming is not enabled)."));
             Q_EMIT connectionChanged();
         });
@@ -114,7 +114,7 @@ void YouTubeAccount::ensureStream(const std::function<void(bool, const QString &
     // Reuse one persistent liveStream (stable stream key) if it still exists.
     const QString saved = Settings::instance().s("accounts.youtube.streamId");
     auto create = [this, cb] {
-        QJsonObject body{{"snippet", QJsonObject{{"title", "HeartCast Studio"}}},
+        QJsonObject body{{"snippet", QJsonObject{{"title", "KovaLive!"}}},
                          {"cdn", QJsonObject{{"ingestionType", "rtmp"}, {"resolution", "variable"}, {"frameRate", "variable"}}},
                          {"contentDetails", QJsonObject{{"isReusable", true}}}};
         api("POST", "/liveStreams?part=snippet,cdn,contentDetails", body, [this, cb](int st, const QJsonObject &o) {
@@ -139,7 +139,7 @@ void YouTubeAccount::fetchStreamTarget(const QString &title, const TargetCb &cb)
     ensureStream([this, title, cb](bool ok, const QString &streamId, const QString &server, const QString &key, const QString &err) {
         if (!ok) { cb(false, {}, {}, tr("YouTube: %1 (is live streaming enabled on the channel?)").arg(err)); return; }
         QJsonObject body{
-            {"snippet", QJsonObject{{"title", title.isEmpty() ? tr("Live with HeartCast ♡") : title},
+            {"snippet", QJsonObject{{"title", title.isEmpty() ? tr("Live with KovaLive!") : title},
                                     {"scheduledStartTime", QDateTime::currentDateTimeUtc().toString(Qt::ISODate)}}},
             {"status", QJsonObject{{"privacyStatus", privacy()}, {"selfDeclaredMadeForKids", false}}},
             {"contentDetails", QJsonObject{{"enableAutoStart", true}, {"enableAutoStop", true}, {"latencyPreference", "low"}}}};

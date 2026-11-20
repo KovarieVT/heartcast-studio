@@ -142,7 +142,7 @@ void PreviewWidget::createDisplay() {
     info.window.id = uint32_t(winId());
     info.window.display = obs_get_nix_platform_display();
 #endif
-    m_display = obs_display_create(&info, 0xFFF9FC);
+    m_display = obs_display_create(&info, 0x0D0A0B);   // #0B0A0D (r in low byte)
     if (m_display) obs_display_add_draw_callback(m_display, drawCallback, this);
 }
 
@@ -226,9 +226,9 @@ static QList<QPointF> itemCorners(obs_sceneitem_t *item) {
 }
 
 // colours are ABGR-packed for vec4_from_rgba (r in low byte)
-static constexpr uint32_t kPink = 0xFF9D6FC9;     // #C96F9D deep rose selection
-static constexpr uint32_t kMint = 0xFFB1CD77;     // #77CDB1 guides
-static constexpr uint32_t kSafe = 0x66F7CCDC;     // translucent lavender
+static constexpr uint32_t kSelect = 0xFF3F30E0;   // #E0303F blood-red selection
+static constexpr uint32_t kGuide = 0xFF5A93B8;    // #B8935A old-gold guides
+static constexpr uint32_t kSafe = 0x66B8AEB4;     // translucent moonsilver
 
 void PreviewWidget::drawOverlays(float scale) {
     obs_video_info ovi{}; obs_get_video_info(&ovi);
@@ -242,11 +242,11 @@ void PreviewWidget::drawOverlays(float scale) {
     QMutexLocker l(&m_selMutex);
     if (m_selected) {
         const auto pts = itemCorners(m_selected);
-        drawLines(pts, true, kPink);
+        drawLines(pts, true, kSelect);
         const float half = 5.f / scale;
-        for (const auto &p : pts) drawSquare(p, half, kPink);
+        for (const auto &p : pts) drawSquare(p, half, kSelect);
     }
-    for (const auto &g : m_guides) drawLines({g.p1(), g.p2()}, false, kMint);
+    for (const auto &g : m_guides) drawLines({g.p1(), g.p2()}, false, kGuide);
 }
 
 void PreviewWidget::drawCallback(void *data, uint32_t cx, uint32_t cy) {

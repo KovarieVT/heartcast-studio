@@ -1,21 +1,22 @@
 {
   "packs": [
-    {"id": "cotton-candy",    "name": "Cotton Candy",    "bg": ["#FFDCEB", "#DCCCF7"], "accent": "#F5A6C8", "text": "#514852", "emoji": "♡", "font": "Nunito"},
-    {"id": "strawberry-milk", "name": "Strawberry Milk", "bg": ["#FFF9FC", "#F7C4D8"], "accent": "#E98DB7", "text": "#6B3550", "emoji": "🍓", "font": "Quicksand"},
-    {"id": "mint-macaron",    "name": "Mint Macaron",      "bg": ["#D2F3E7", "#FFF9FC"], "accent": "#77CDB1", "text": "#2E5A4D", "emoji": "✿", "font": "Nunito"},
-    {"id": "pastel-dream",    "name": "Pastel Dream",    "bg": ["#EDE4FF", "#D2F3E7"], "accent": "#DCCCF7", "text": "#514852", "emoji": "☁", "font": "Quicksand"},
-    {"id": "pink-galaxy",     "name": "Pink Galaxy",     "bg": ["#3B2B4F", "#C96F9D"], "accent": "#F5A6C8", "text": "#FFF9FC", "emoji": "✦", "font": "Poppins"},
-    {"id": "cherry-blossom",  "name": "Cherry Blossom",  "bg": ["#FFF0F5", "#F7C4D8"], "accent": "#C96F9D", "text": "#5A3446", "emoji": "🌸", "font": "Nunito"},
-    {"id": "magical-girl",    "name": "Magical Girl",    "bg": ["#F5A6C8", "#DCCCF7"], "accent": "#FFF9FC", "text": "#514852", "emoji": "★", "font": "Poppins"},
-    {"id": "soft-academia",   "name": "Soft Academia",   "bg": ["#F5F1F5", "#E8DCCF"], "accent": "#C96F9D", "text": "#4A3F3A", "emoji": "✎", "font": "Inter"}
+    {"id": "nocturne",          "name": "Nocturne",          "bg": ["#1D1922", "#0B0A0D"], "accent": "#9E1B32", "metal": "#B8935A", "text": "#E6DED2", "glyph": "☾", "font": "Cinzel",            "particles": "bats"},
+    {"id": "crimson-cathedral", "name": "Crimson Cathedral", "bg": ["#2A0C14", "#0E0507"], "accent": "#C8283F", "metal": "#C9A46A", "text": "#F3ECDF", "glyph": "⚜", "font": "Cinzel Decorative", "particles": "embers"},
+    {"id": "velvet-requiem",    "name": "Velvet Requiem",    "bg": ["#24142E", "#0C0810"], "accent": "#7A3F99", "metal": "#B4AEB8", "text": "#EDE4F3", "glyph": "❦", "font": "Cinzel",            "particles": "petals"},
+    {"id": "bone-and-ash",      "name": "Bone & Ash",        "bg": ["#2B2825", "#121110"], "accent": "#8E8A84", "metal": "#D8CFC0", "text": "#F3ECDF", "glyph": "✧", "font": "Inter",             "particles": "ash"},
+    {"id": "blood-moon",        "name": "Blood Moon",        "bg": ["#2E0910", "#08070A"], "accent": "#E0303F", "metal": "#B4AEB8", "text": "#F3ECDF", "glyph": "☾", "font": "Cinzel Decorative", "particles": "bats"},
+    {"id": "absinthe",          "name": "Absinthe",          "bg": ["#15241F", "#070C0A"], "accent": "#3F8F7A", "metal": "#B8935A", "text": "#E6F0EA", "glyph": "❧", "font": "Cinzel",            "particles": "embers"},
+    {"id": "gilded-crypt",      "name": "Gilded Crypt",      "bg": ["#2A2216", "#0E0B07"], "accent": "#B8935A", "metal": "#E2C38C", "text": "#F3E7CF", "glyph": "⚜", "font": "Cinzel Decorative", "particles": "embers"},
+    {"id": "ravenwing",         "name": "Ravenwing",         "bg": ["#1A1D27", "#07070A"], "accent": "#7A86A8", "metal": "#B4AEB8", "text": "#E4E7EF", "glyph": "✧", "font": "Inter",             "particles": "feathers"}
   ],
   "alertTemplates": {
-    "follow":       "{user} just followed! welcome, cutie ♡",
-    "subscribe":    "{user} subscribed! thank you, cutie ✦",
-    "gift":         "{user} gifted {amount} subs! so generous ♡",
-    "raid":         "{user} is raiding with {amount} friends! hi hi!",
-    "cheer":        "{user} cheered {amount} bits ✦",
-    "donation":     "{user} tipped {amount}! {message}",
-    "membership":   "{user} became a member ♡"
+    "follow":       "{user} followed. Welcome to the night.",
+    "subscribe":    "{user} subscribed. Eternal thanks.",
+    "gift":         "{user} gifted {amount} subs to the crowd!",
+    "raid":         "{user} arrives with {amount} raiders!",
+    "cheer":        "{user} offered {amount} bits",
+    "donation":     "{user} tipped {amount}. {message}",
+    "membership":   "{user} became a member",
+    "redemption":   "{user} redeemed {message}"
   }
 }

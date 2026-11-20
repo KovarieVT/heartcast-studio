@@ -15,14 +15,25 @@ void registerWidgetSource();
 void unregisterWidgetSources();
 
 struct WidgetConfig {
-    QString kind;      // alerts | chat | events | label | goal | countdown | stopwatch | social | sponsor | viewers | text_panel
-    QString pack;      // overlay pack id (cotton-candy …)
+    QString kind;      // renderer — see overlays/WidgetCatalog.cpp for every kind
+    QString pack;      // overlay pack id (nocturne …)
     int width = 600, height = 200;
     QString title;
-    QString labelType; // recent_follower | recent_sub | recent_donation | viewer_count
-    QString goalMetric;// followers | subs | donations
+    QString text;      // multi-line content: messages, schedule lines, poll options, subtitle…
+    QString labelType; // label: recent_follower | recent_sub | … | session_chatters
+    QString goalMetric;// goals: followers | subs | donations | bits | messages
+    QString metric;    // ticker/recent/leaderboard/ambient selector
+    QString keyword;   // chat command or counted word (!vote, !join, !q, !death, LUL…)
+    QString target;    // countdown-to-date "YYYY-MM-DD HH:MM" or world-clock time zone
+    QString file;      // text file (file_text) or image folder (slideshow)
+    QString audioSource; // voice sigil / visualizer source name (empty = first microphone)
     int goalTarget = 100, goalStart = 0;
     int countdownMinutes = 10;
+    int count = 5;     // items to show / candles / bars
+    int interval = 10; // seconds (rotator, slideshow) or minutes (reminder, pomodoro break)
+    int value = 0, value2 = 0;              // counter / win-loss values (persisted)
+    int addFollow = 30, addSub = 120, addTip = 60;   // subathon seconds per event (tip: per 1 unit / 100 bits)
+    qint64 subathonEnd = 0;                 // ms since epoch (persisted)
     int fontSize = 28;
     QString socials;   // "twitch:name;tiktok:name;…"
     QString soundFile; // alert sound
@@ -52,5 +63,8 @@ private:
 };
 
 WidgetConfig widgetConfigFromData(obs_data_t *settings);
+// Catalog defaults (JSON) on top of the source's registered defaults — what a freshly
+// added widget would get. Used for gallery previews.
+WidgetConfig widgetConfigFromJson(const QJsonObject &values);
 
 } // namespace bc

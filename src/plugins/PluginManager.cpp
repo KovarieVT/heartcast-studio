@@ -93,7 +93,7 @@ QList<PluginEntry> PluginManager::scan() {
             e.signer = authenticodeSigner(e.path);
             if (!e.hashOk) e.error = tr("SHA-256 does not match plugin.json — file may be corrupted or tampered with.");
         }
-        if (!e.compatible && e.error.isEmpty()) e.error = tr("Built for plugin API v%1; this HeartCast supports v%2.").arg(e.apiVersion).arg(apiVersion());
+        if (!e.compatible && e.error.isEmpty()) e.error = tr("Built for plugin API v%1; this KovaLive supports v%2.").arg(e.apiVersion).arg(apiVersion());
         e.enabled = enabled.contains(e.id);
         e.loaded = m_loaders.contains(e.id) && m_loaders[e.id]->isLoaded();
         found << e;
@@ -114,11 +114,11 @@ bool PluginManager::setEnabled(const QString &id, bool on, QString *error) {
             Settings::instance().set("plugins.enabled", enabled);
             Settings::instance().save();
             if (e.kind == "app" && !loadOne(e)) { if (error) *error = e.error; return false; }
-            if (e.kind == "obs-module" && error) *error = tr("Restart HeartCast to load this engine module.");
+            if (e.kind == "obs-module" && error) *error = tr("Restart KovaLive to load this engine module.");
         }
     } else {
         if (auto *l = m_loaders.take(id)) {
-            if (auto *p = qobject_cast<HeartCastPlugin *>(l->instance())) p->unload();
+            if (auto *p = qobject_cast<KovaLivePlugin *>(l->instance())) p->unload();
             l->unload();
             delete l;
         }
@@ -133,9 +133,9 @@ bool PluginManager::loadOne(PluginEntry &e) {
     if (m_loaders.contains(e.id)) return true;
     auto *loader = new QPluginLoader(e.path, this);
     QObject *inst = loader->instance();
-    auto *plugin = qobject_cast<HeartCastPlugin *>(inst);
+    auto *plugin = qobject_cast<KovaLivePlugin *>(inst);
     if (!plugin) {
-        e.error = tr("Not a HeartCast plugin: %1").arg(loader->errorString());
+        e.error = tr("Not a KovaLive plugin: %1").arg(loader->errorString());
         qWarning("Plugin %s failed: %s", qPrintable(e.id), qPrintable(e.error));
         loader->unload();
         delete loader;
@@ -162,7 +162,7 @@ void PluginManager::loadEnabled() {
 
 void PluginManager::unloadAll() {
     for (auto *l : std::as_const(m_loaders)) {
-        if (auto *p = qobject_cast<HeartCastPlugin *>(l->instance())) p->unload();
+        if (auto *p = qobject_cast<KovaLivePlugin *>(l->instance())) p->unload();
         l->unload();
         delete l;
     }

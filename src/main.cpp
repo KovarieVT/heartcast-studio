@@ -1,4 +1,4 @@
-// HeartCast Studio — entry point
+// KovaLive! — entry point
 #include "BuildInfo.h"
 #include "app/Theme.h"
 #include "core/HotkeyManager.h"
@@ -49,10 +49,10 @@ static void startWatchdog() {
             if (!g_startupDone && nowMs() - g_lastProgress > 60000) {
                 qCritical("Startup watchdog: no progress for 60 s, giving up");
 #ifdef _WIN32
-                const std::wstring msg = QStringLiteral("HeartCast Studio is stuck while starting (usually a graphics driver or a broken plugin).\n\n"
+                const std::wstring msg = QStringLiteral("KovaLive! is stuck while starting (usually a graphics driver or a broken plugin).\n\n"
                                                         "Logs: %1\n\nThe app will now close. Try updating your GPU driver or removing recently added plugins.")
                                          .arg(QDir::toNativeSeparators(Paths::logs())).toStdWString();
-                MessageBoxW(nullptr, msg.c_str(), L"HeartCast Studio", MB_ICONWARNING | MB_OK | MB_TOPMOST);
+                MessageBoxW(nullptr, msg.c_str(), L"KovaLive!", MB_ICONWARNING | MB_OK | MB_TOPMOST);
 #endif
                 std::_Exit(3);
             }
@@ -64,6 +64,12 @@ int main(int argc, char **argv) {
     Q_INIT_RESOURCE(resources);   // resources live in the static core library
     // Settings must be read before QApplication for UI scaling.
     Settings::instance().load(Paths::configFile());
+    // Settings carried over from the pastel HeartCast days switch to the gothic theme once.
+    if (Settings::instance().s("appearance.theme") != QLatin1String(theme::kThemeId)) {
+        Settings::instance().set("appearance.theme", QString::fromLatin1(theme::kThemeId));
+        Settings::instance().set("appearance.accent", QString::fromLatin1(theme::kDefaultAccent));
+        Settings::instance().save();
+    }
     const double scale = Settings::instance().d("appearance.uiScale");
     if (scale > 0.5 && std::abs(scale - 1.0) > 0.01) qputenv("QT_SCALE_FACTOR", QByteArray::number(scale));
 #ifdef __linux__
@@ -79,7 +85,7 @@ int main(int argc, char **argv) {
     QApplication::setQuitOnLastWindowClosed(false);
 
     // ---- single instance: forward to the running copy instead of starting twice
-    const QString serverName = QStringLiteral("HeartCastStudio-") + qEnvironmentVariable("USERNAME", qEnvironmentVariable("USER"));
+    const QString serverName = QStringLiteral("KovaLive-") + qEnvironmentVariable("USERNAME", qEnvironmentVariable("USER"));
     {
         QLocalSocket probe;
         probe.connectToServer(serverName);
@@ -144,6 +150,14 @@ int main(int argc, char **argv) {
             win->showCrashRecoveryNotice(dumps.isEmpty() ? QObject::tr("No crash dump was written.") : QObject::tr("Latest dump: %1").arg(dumps.first()));
         }
         if (!Settings::instance().b("general.firstRunComplete")) win->runFirstTimeWizard();
+        // --open settings[:Category] | widgets | media | effects | transitions | recordings | analytics | plugins | chat | activity
+        const QStringList args = QCoreApplication::arguments();
+        const int oi = args.indexOf("--open");
+        if (oi >= 0 && oi + 1 < args.size()) {
+            const QString what = args.at(oi + 1);
+            if (what.startsWith("settings")) win->openSettings(what.section(':', 1));
+            else win->openWindow(what);
+        }
     });
 
     QObject::connect(win, &QObject::destroyed, &app, &QApplication::quit);

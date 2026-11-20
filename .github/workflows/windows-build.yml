@@ -1,7 +1,7 @@
 # Builds the real Windows deliverables on a GitHub-hosted Windows runner:
 #   • libobs + engine plugins from OBS Studio source (pinned tag, UI/browser disabled)
-#   • HeartCastStudio.exe (Qt 6 + libobs), unit tests, best-effort engine smoke test
-#   • portable ZIP + Inno Setup installer (HeartCastStudio-<ver>-Setup.exe)
+#   • KovaLive.exe (Qt 6 + libobs), unit tests, best-effort engine smoke test
+#   • portable ZIP + Inno Setup installer (KovaLive-<ver>-Setup.exe)
 #   • optional Authenticode signing via Azure Artifact Signing (only when its secrets are configured)
 #   • on version tags (v*): a GitHub Release with an update.json feed for the in-app updater
 name: Windows build
@@ -21,7 +21,10 @@ concurrency:
 
 env:
   OBS_VERSION: "32.2.2"          # engine source; bump deliberately and re-run tests
-  QT_VERSION: "6.8.3"
+  # Must be the SAME Qt OBS ${OBS_VERSION}'s prebuilt deps use (obs-deps 2026-07-15 → Qt 6.11.1):
+  # the obs-vst plugin is built by OBS against that Qt and links to its DLLs at load time.
+  QT_VERSION: "6.11.1"
+  VST3_SDK_TAG: "v3.8.0_build_66"   # Steinberg VST3 SDK (MIT), commit 9fad9770f2ae8542ab1a548a68c1ad1ac690abe0
   # Our OWN DirectShow virtual-camera CLSID so we never collide with an OBS install
   VIRTUALCAM_GUID: "B7A3E4D1-5C2F-4A8E-9D61-3F0C2E8B7A54"
 
@@ -32,15 +35,15 @@ jobs:
     env:
       HAS_SIGNING: ${{ secrets.AZURE_CLIENT_ID != '' }}
     steps:
-      - name: Checkout HeartCast
+      - name: Checkout KovaLive
         uses: actions/checkout@v6
-        with: { path: heartcast }
+        with: { path: kovalive }
 
       - name: Version
         id: ver
         shell: pwsh
         run: |
-          $v = (Select-String -Path heartcast/CMakeLists.txt -Pattern 'set\(APP_VERSION\s+"([^"]+)"').Matches[0].Groups[1].Value
+          $v = (Select-String -Path kovalive/CMakeLists.txt -Pattern 'set\(APP_VERSION\s+"([^"]+)"').Matches[0].Groups[1].Value
           if ($env:GITHUB_REF -like 'refs/tags/v*') { $v = $env:GITHUB_REF_NAME.TrimStart('v') }
           "version=$v" >> $env:GITHUB_OUTPUT
 
@@ -50,7 +53,7 @@ jobs:
         uses: actions/cache@v5
         with:
           path: obs-dist
-          key: obs-${{ env.OBS_VERSION }}-${{ env.VIRTUALCAM_GUID }}-v3
+          key: obs-${{ env.OBS_VERSION }}-${{ env.VIRTUALCAM_GUID }}-v4
 
       - name: Checkout OBS Studio ${{ env.OBS_VERSION }}
         if: steps.obscache.outputs.cache-hit != 'true'
@@ -68,7 +71,7 @@ jobs:
           $f = "obs-studio/plugins/win-dshow/virtualcam-module/virtualcam-module.cpp"
           $src = Get-Content $f -Raw
           if ($src -notmatch 'L"OBS Virtual Camera"') { throw "virtual camera name not found — OBS source changed, review the patch" }
-          $src.Replace('L"OBS Virtual Camera"', 'L"HeartCast Virtual Camera"') | Set-Content -NoNewline $f
+          $src.Replace('L"OBS Virtual Camera"', 'L"KovaLive Virtual Camera"') | Set-Content -NoNewline $f
 
       - name: Build libobs + engine plugins
         if: steps.obscache.outputs.cache-hit != 'true'
@@ -94,6 +97,13 @@ jobs:
               Where-Object { $_.Name -notlike 'Qt6*' } | Copy-Item -Destination "$dist/bin/64bit" -Force
           }
           Get-ChildItem "$dist/bin/64bit" -Filter *.dll | ForEach-Object { $_.Name }
+          # record which Qt obs-vst was built against, so the app build can refuse a mismatch
+          $qtdeps = Get-ChildItem .deps -Directory | Where-Object { $_.Name -like 'obs-deps-qt6-*' } | Select-Object -First 1
+          $qtcfg = Get-ChildItem $qtdeps.FullName -Recurse -Filter Qt6ConfigVersionImpl.cmake | Select-Object -First 1
+          if (-not $qtcfg) { $qtcfg = Get-ChildItem $qtdeps.FullName -Recurse -Filter Qt6ConfigVersion.cmake | Select-Object -First 1 }
+          $qv = (Select-String -Path $qtcfg.FullName -Pattern 'PACKAGE_VERSION "([0-9.]+)"').Matches[0].Groups[1].Value
+          Set-Content "$dist/obs-qt-version.txt" $qv
+          Write-Host "OBS deps Qt: $qv"
           # libobs' CMake package requires SIMDe headers; they live in OBS's .deps folder
           $simde = Get-ChildItem .deps -Recurse -Filter simde-common.h -ErrorAction SilentlyContinue | Select-Object -First 1
           if ($simde) {
@@ -106,15 +116,32 @@ jobs:
           Get-ChildItem "$dist/cmake" | ForEach-Object { $_.Name }
 
       # ---------------------------------------------------------------- app
+      - name: Check Qt matches the engine's
+        shell: pwsh
+        run: |
+          $obsQt = (Get-Content obs-dist/obs-qt-version.txt -Raw).Trim()
+          if ($obsQt -ne $env:QT_VERSION) { throw "OBS deps use Qt $obsQt but QT_VERSION is $env:QT_VERSION — obs-vst would fail to load. Set QT_VERSION to $obsQt." }
+
       - name: Install Qt ${{ env.QT_VERSION }}
         uses: jurplel/install-qt-action@v4
         with:
           version: ${{ env.QT_VERSION }}
           arch: win64_msvc2022_64
           modules: qtmultimedia qtwebsockets qtimageformats
+          aqtversion: "==3.3.*"
           cache: true
 
-      - name: Configure & build HeartCast
+      - name: Steinberg VST3 SDK ${{ env.VST3_SDK_TAG }} (for the VST3 host)
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'; $PSNativeCommandUseErrorActionPreference = $true
+          git clone --depth 1 --branch $env:VST3_SDK_TAG https://github.com/steinbergmedia/vst3sdk "$env:RUNNER_TEMP/vst3/vst3sdk"
+          Push-Location "$env:RUNNER_TEMP/vst3/vst3sdk"
+          if ((git rev-parse HEAD) -ne "9fad9770f2ae8542ab1a548a68c1ad1ac690abe0") { throw "VST3 SDK tag moved — review before building" }
+          git submodule update --init --depth 1 base pluginterfaces public.sdk
+          Pop-Location
+
+      - name: Configure & build KovaLive
         shell: pwsh
         run: |
           $ErrorActionPreference = 'Stop'; $PSNativeCommandUseErrorActionPreference = $true
@@ -122,12 +149,15 @@ jobs:
           $pthr   = Get-ChildItem -Recurse obs-dist -Filter w32-pthreadsConfig.cmake | Select-Object -First 1
           if (-not $libobs) { throw "libobsConfig.cmake not found in obs-dist" }
           $feed = "https://github.com/${{ github.repository }}/releases/latest/download/update.json"
-          cmake -S heartcast -B hcbuild -G "Visual Studio 18 2026" -A x64 `
+          cmake -S kovalive -B hcbuild -G "Visual Studio 18 2026" -A x64 `
             -DCMAKE_PREFIX_PATH="$env:QT_ROOT_DIR;${{ github.workspace }}/obs-dist" `
             -Dlibobs_DIR="$($libobs.DirectoryName)" `
             -Dw32-pthreads_DIR="$($pthr.DirectoryName)" `
-            -DHEARTCAST_UPDATE_FEED="$feed"
+            -DKOVALIVE_UPDATE_FEED="$feed" `
+            -DKOVALIVE_BUILD_VST3=ON -DSTEINBERG_VST3_PATH="$env:RUNNER_TEMP/vst3"
           cmake --build hcbuild --config Release --parallel
+          # stage what CMake installs (KovaLive.exe, obs-vst3 module + scanner + locale)
+          cmake --install hcbuild --config Release --prefix "${{ github.workspace }}/app-stage"
 
       - name: Unit tests
         timeout-minutes: 10
@@ -144,13 +174,14 @@ jobs:
         run: Invoke-WebRequest https://aka.ms/vs/17/release/vc_redist.x64.exe -OutFile vc_redist.x64.exe
 
       - name: Assemble distributable folder
-        working-directory: heartcast
+        working-directory: kovalive
         shell: pwsh
         run: |
           $ErrorActionPreference = 'Stop'; $PSNativeCommandUseErrorActionPreference = $true
           ./tools/package_windows.ps1 -ObsInstall "${{ github.workspace }}/obs-dist" `
-            -AppExe "${{ github.workspace }}/hcbuild/bin/Release/HeartCastStudio.exe" `
-            -QtBin "$env:QT_ROOT_DIR/bin" -Out "${{ github.workspace }}/dist/HeartCast" `
+            -AppExe "${{ github.workspace }}/hcbuild/bin/Release/KovaLive.exe" `
+            -QtBin "$env:QT_ROOT_DIR/bin" -Out "${{ github.workspace }}/dist/KovaLive" `
+            -AppStage "${{ github.workspace }}/app-stage" `
             -VcRedist "${{ github.workspace }}/vc_redist.x64.exe"
 
       - name: Engine test on Windows (D3D11 via Microsoft Basic Render Driver)
@@ -160,23 +191,23 @@ jobs:
           # Runs the packaged engine exactly as shipped: real libobs, D3D11, plugins, recording,
           # replay buffer, scene persistence, error reporting. (Multistream is covered on Linux.)
           # Full page heap + cdb turn any memory corruption into an exact stack trace.
-          $bin = "${{ github.workspace }}/dist/HeartCast/bin/64bit"
-          Copy-Item hcbuild/tests/Release/heartcast_engine_test.exe, hcbuild/tests/Release/heartcast_engine_test.pdb $bin
+          $bin = "${{ github.workspace }}/dist/KovaLive/bin/64bit"
+          Copy-Item hcbuild/tests/Release/kovalive_engine_test.exe, hcbuild/tests/Release/kovalive_engine_test.pdb $bin
           $log = "$env:RUNNER_TEMP\engine-test.txt"
           $dbg = "${env:ProgramFiles(x86)}\Windows Kits\10\Debuggers\x64"
           Push-Location $bin
           try {
             if (Test-Path "$dbg\cdb.exe") {
-              & "$dbg\gflags.exe" /p /enable heartcast_engine_test.exe /full | Out-Null
-              $env:_NT_SYMBOL_PATH = "$bin;${{ github.workspace }}\obs-dist\bin\64bit;${{ github.workspace }}\dist\HeartCast\obs-plugins\64bit;${{ github.workspace }}\hcbuild\bin\Release"
-              & "$dbg\cdb.exe" -g -G -lines -c ".echo ===== CRASH =====; .ecxr; kn 60; q" .\heartcast_engine_test.exe -platform windows -o "$log,txt" -o "-,txt"
-              & "$dbg\gflags.exe" /p /disable heartcast_engine_test.exe | Out-Null
+              & "$dbg\gflags.exe" /p /enable kovalive_engine_test.exe /full | Out-Null
+              $env:_NT_SYMBOL_PATH = "$bin;${{ github.workspace }}\obs-dist\bin\64bit;${{ github.workspace }}\dist\KovaLive\obs-plugins\64bit;${{ github.workspace }}\hcbuild\bin\Release"
+              & "$dbg\cdb.exe" -g -G -lines -c ".echo ===== CRASH =====; .ecxr; kn 60; q" .\kovalive_engine_test.exe -platform windows -o "$log,txt" -o "-,txt"
+              & "$dbg\gflags.exe" /p /disable kovalive_engine_test.exe | Out-Null
             } else {
-              & .\heartcast_engine_test.exe -platform windows -o "$log,txt"
+              & .\kovalive_engine_test.exe -platform windows -o "$log,txt"
             }
           } finally {
             Pop-Location
-            Remove-Item "$bin/heartcast_engine_test.exe", "$bin/heartcast_engine_test.pdb" -ErrorAction SilentlyContinue
+            Remove-Item "$bin/kovalive_engine_test.exe", "$bin/kovalive_engine_test.pdb" -ErrorAction SilentlyContinue
           }
           Write-Host "===== test log ====="
           if (Test-Path $log) { Get-Content $log } else { Write-Host "(no log written)" }
@@ -195,7 +226,7 @@ jobs:
           certificate-profile-name: ${{ secrets.ARTIFACT_SIGNING_PROFILE }}
           # Smart App Control checks EVERY binary a process loads, so sign all exe + dll
           # (libobs, plugins, FFmpeg and friends) — not just the main executable.
-          files-folder: ${{ github.workspace }}\dist\HeartCast
+          files-folder: ${{ github.workspace }}\dist\KovaLive
           files-folder-filter: exe,dll
           files-folder-recurse: true
           file-digest: SHA256
@@ -208,9 +239,9 @@ jobs:
           $ErrorActionPreference = 'Stop'; $PSNativeCommandUseErrorActionPreference = $true
           choco install innosetup -y --no-progress
           & "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe" `
-            /DSourceDir="${{ github.workspace }}\dist\HeartCast" /DAppVersion="${{ steps.ver.outputs.version }}" `
-            heartcast\installer\HeartCast.iss
-          Move-Item heartcast\dist\HeartCastStudio-*-Setup.exe dist\
+            /DSourceDir="${{ github.workspace }}\dist\KovaLive" /DAppVersion="${{ steps.ver.outputs.version }}" `
+            kovalive\installer\KovaLive.iss
+          Move-Item kovalive\dist\KovaLive-*-Setup.exe dist\
 
       - name: Sign installer (Azure Artifact Signing — only if configured)
         if: env.HAS_SIGNING == 'true'
@@ -232,8 +263,8 @@ jobs:
         shell: pwsh
         run: |
           $v = "${{ steps.ver.outputs.version }}"
-          Compress-Archive -Path dist\HeartCast\* -DestinationPath "dist\HeartCastStudio-$v-portable.zip"
-          $setup = Get-ChildItem dist\HeartCastStudio-*-Setup.exe | Select-Object -First 1
+          Compress-Archive -Path dist\KovaLive\* -DestinationPath "dist\KovaLive-$v-portable.zip"
+          $setup = Get-ChildItem dist\KovaLive-*-Setup.exe | Select-Object -First 1
           $sha = (Get-FileHash $setup.FullName -Algorithm SHA256).Hash.ToLower()
           @{ version = $v; url = "https://github.com/${{ github.repository }}/releases/download/v$v/$($setup.Name)";
              sha256 = $sha; size = $setup.Length; notes = "See the release page for what's new." } |
@@ -241,10 +272,10 @@ jobs:
 
       - uses: actions/upload-artifact@v6
         with:
-          name: HeartCastStudio-${{ steps.ver.outputs.version }}-windows-x64
+          name: KovaLive-${{ steps.ver.outputs.version }}-windows-x64
           path: |
-            dist/HeartCastStudio-*-Setup.exe
-            dist/HeartCastStudio-*-portable.zip
+            dist/KovaLive-*-Setup.exe
+            dist/KovaLive-*-portable.zip
             dist/update.json
 
       - name: Publish release (version tags only)
@@ -252,8 +283,8 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           files: |
-            dist/HeartCastStudio-*-Setup.exe
-            dist/HeartCastStudio-*-portable.zip
+            dist/KovaLive-*-Setup.exe
+            dist/KovaLive-*-portable.zip
             dist/update.json
 
   linux-engine-tests:
@@ -270,5 +301,5 @@ jobs:
           sudo apt-get -o Acquire::Retries=3 install -y --no-install-recommends libobs-dev obs-studio qt6-base-dev qt6-multimedia-dev qt6-websockets-dev \
             libqt6svg6-dev libgl1-mesa-dev mesa-utils xvfb ffmpeg ninja-build
       - run: cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=RelWithDebInfo && cmake --build build
-      - run: ./build/tests/heartcast_unit_tests -platform offscreen
+      - run: ./build/tests/kovalive_unit_tests -platform offscreen
       - run: ./tests/run_engine_test.sh build

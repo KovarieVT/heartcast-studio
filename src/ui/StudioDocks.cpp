@@ -1,5 +1,9 @@
 #include "ui/StudioDocks.h"
+#include "ui/Icons.h"
 #include "app/Theme.h"
+#include "overlays/WidgetCatalog.h"
+#include <QJsonDocument>
+#include "ui/GothicPainter.h"
 #include "core/Paths.h"
 #include "engine/Engine.h"
 #include "ui/PreviewWidget.h"
@@ -46,6 +50,17 @@ static QToolButton *tinyButton(const QString &text, const QString &tip, QWidget 
     return b;
 }
 
+static QIcon eyeIcon(bool visible) { return icons::flat(visible ? "eye" : "eye-off", visible ? theme::Bone : theme::Smoke); }
+static QIcon lockIcon(bool locked) { return icons::flat(locked ? "lock" : "unlock", locked ? theme::OldGold : theme::Smoke); }
+
+static QToolButton *iconButton(const QString &icon, const QString &tip, QWidget *parent) {
+    auto *b = tinyButton(QString(), tip, parent);
+    b->setIcon(icons::get(icon));
+    b->setIconSize(QSize(16, 16));
+    b->setProperty("iconOnly", true);
+    return b;
+}
+
 // ===================================================================== Scenes
 ScenesPanel::ScenesPanel(QWidget *parent) : QWidget(parent) {
     auto *lay = new QVBoxLayout(this);
@@ -56,11 +71,11 @@ ScenesPanel::ScenesPanel(QWidget *parent) : QWidget(parent) {
     m_list->setEditTriggers(QAbstractItemView::EditKeyPressed);
     lay->addWidget(m_list, 1);
     auto *row = new QHBoxLayout;
-    auto *add = tinyButton("＋", tr("Add scene"), this);
-    auto *del = tinyButton("－", tr("Remove scene"), this);
-    auto *dup = tinyButton("⧉", tr("Duplicate scene"), this);
-    auto *up = tinyButton("▲", tr("Move up"), this);
-    auto *down = tinyButton("▼", tr("Move down"), this);
+    auto *add = iconButton("add", tr("Add scene"), this);
+    auto *del = iconButton("remove", tr("Remove scene"), this);
+    auto *dup = iconButton("duplicate", tr("Duplicate scene"), this);
+    auto *up = iconButton("up", tr("Move up"), this);
+    auto *down = iconButton("down", tr("Move down"), this);
     for (auto *b : {add, del, dup, up, down}) row->addWidget(b);
     row->addStretch();
     lay->addLayout(row);
@@ -75,7 +90,7 @@ ScenesPanel::ScenesPanel(QWidget *parent) : QWidget(parent) {
         if (!m_list->currentItem()) return;
         const QString n = m_list->currentItem()->text();
         if (QMessageBox::question(this, tr("Remove scene"), tr("Remove \"%1\"?").arg(n)) == QMessageBox::Yes)
-            if (!Engine::instance().removeScene(n)) QMessageBox::information(this, tr("Remove scene"), tr("You need at least one scene ♡"));
+            if (!Engine::instance().removeScene(n)) QMessageBox::information(this, tr("Remove scene"), tr("You need at least one scene."));
     });
     connect(dup, &QToolButton::clicked, this, [this] { if (m_list->currentItem()) Engine::instance().duplicateScene(m_list->currentItem()->text()); });
     connect(up, &QToolButton::clicked, this, [this] { if (auto *it = m_list->currentItem()) Engine::instance().moveScene(it->text(), m_list->row(it) - 1); });
@@ -109,7 +124,7 @@ void ScenesPanel::reload() {
         it->setText(n);
         it->setData(Qt::UserRole, n);
         it->setFlags(it->flags() | Qt::ItemIsEditable | Qt::ItemIsDragEnabled);
-        if (n == eng.programScene()) { QFont f = it->font(); f.setBold(true); it->setFont(f); it->setForeground(theme::DeepRose); }
+        if (n == eng.programScene()) { QFont f = it->font(); f.setBold(true); it->setFont(f); it->setForeground(theme::Blood); }
         m_list->addItem(it);
         if (n == eng.previewScene()) m_list->setCurrentItem(it);
     }
@@ -126,7 +141,7 @@ void ScenesPanel::contextMenu(const QPoint &pt) {
         m.addAction(tr("Duplicate"), this, [n] { Engine::instance().duplicateScene(n); });
         m.addAction(tr("Send to program now"), this, [n] { Engine::instance().transitionTo(n); });
         m.addSeparator();
-        m.addAction(tr("Remove"), this, [this, n] { if (!Engine::instance().removeScene(n)) QMessageBox::information(this, tr("Remove"), tr("You need at least one scene ♡")); });
+        m.addAction(tr("Remove"), this, [this, n] { if (!Engine::instance().removeScene(n)) QMessageBox::information(this, tr("Remove"), tr("You need at least one scene.")); });
     }
     m.exec(m_list->mapToGlobal(pt));
 }
@@ -147,12 +162,12 @@ SourcesPanel::SourcesPanel(PreviewWidget *preview, QWidget *parent) : QWidget(pa
     lay->addWidget(m_tree, 1);
 
     auto *row = new QHBoxLayout;
-    auto *add = tinyButton("＋", tr("Add source"), this);
-    auto *del = tinyButton("－", tr("Remove"), this);
-    auto *props = tinyButton("⚙", tr("Properties"), this);
-    auto *filt = tinyButton("✦", tr("Filters & effects"), this);
-    auto *up = tinyButton("▲", tr("Move up"), this);
-    auto *down = tinyButton("▼", tr("Move down"), this);
+    auto *add = iconButton("add", tr("Add source"), this);
+    auto *del = iconButton("remove", tr("Remove"), this);
+    auto *props = iconButton("gear", tr("Properties"), this);
+    auto *filt = iconButton("filters", tr("Filters & effects"), this);
+    auto *up = iconButton("up", tr("Move up"), this);
+    auto *down = iconButton("down", tr("Move down"), this);
     for (auto *b : {add, del, props, filt, up, down}) row->addWidget(b);
     row->addStretch();
     lay->addLayout(row);
@@ -164,6 +179,23 @@ SourcesPanel::SourcesPanel(PreviewWidget *preview, QWidget *parent) : QWidget(pa
     connect(up, &QToolButton::clicked, this, [this] { moveSelected(OBS_ORDER_MOVE_UP); });
     connect(down, &QToolButton::clicked, this, [this] { moveSelected(OBS_ORDER_MOVE_DOWN); });
     connect(m_tree, &QTreeWidget::itemChanged, this, &SourcesPanel::onItemChanged);
+    // eye / lock columns toggle like OBS
+    connect(m_tree, &QTreeWidget::itemClicked, this, [this](QTreeWidgetItem *it, int col) {
+        if (col != 1 && col != 2) return;
+        m_tree->setCurrentItem(it);
+        obs_sceneitem_t *item = currentItem();
+        if (!item) return;
+        if (col == 1) {
+            const bool v = !obs_sceneitem_visible(item);
+            obs_sceneitem_set_visible(item, v);
+            it->setIcon(1, eyeIcon(v));
+            it->setForeground(0, v ? m_tree->palette().text() : QBrush(QColor(0x8E, 0x84, 0x92)));
+        } else {
+            const bool l = !obs_sceneitem_locked(item);
+            obs_sceneitem_set_locked(item, l);
+            it->setIcon(2, lockIcon(l));
+        }
+    });
     connect(m_tree, &QTreeWidget::customContextMenuRequested, this, &SourcesPanel::contextMenu);
     connect(m_tree, &QTreeWidget::itemDoubleClicked, this, [this] { if (auto *i = currentItem()) (new PropertiesDialog(obs_sceneitem_get_source(i), this))->show(); });
     connect(m_tree, &QTreeWidget::currentItemChanged, this, [this] { if (!m_reloading) m_preview->selectItem(currentItem()); });
@@ -206,11 +238,12 @@ static void addItemRow(QTreeWidget *tree, QTreeWidgetItem *parent, obs_sceneitem
     row->setText(0, QString::fromUtf8(obs_source_get_name(src)));
     row->setData(0, Qt::UserRole, qlonglong(obs_sceneitem_get_id(item)));
     row->setToolTip(0, QString::fromUtf8(obs_source_get_display_name(obs_source_get_id(src))));
-    row->setFlags(row->flags() | Qt::ItemIsUserCheckable);
-    row->setText(1, QObject::tr("👁"));
-    row->setCheckState(1, obs_sceneitem_visible(item) ? Qt::Checked : Qt::Unchecked);
-    row->setText(2, QObject::tr("🔒"));
-    row->setCheckState(2, obs_sceneitem_locked(item) ? Qt::Checked : Qt::Unchecked);
+    const bool vis = obs_sceneitem_visible(item), locked = obs_sceneitem_locked(item);
+    row->setIcon(1, eyeIcon(vis));
+    row->setToolTip(1, vis ? QObject::tr("Visible — click to hide") : QObject::tr("Hidden — click to show"));
+    row->setIcon(2, lockIcon(locked));
+    row->setToolTip(2, locked ? QObject::tr("Locked — click to unlock") : QObject::tr("Unlocked — click to lock"));
+    if (!vis) row->setForeground(0, QColor(0x8E, 0x84, 0x92));
     if (!parent) tree->insertTopLevelItem(0, row);   // libobs enumerates bottom→top
     else parent->insertChild(0, row);
     if (obs_sceneitem_is_group(item)) {
@@ -244,8 +277,6 @@ void SourcesPanel::onItemChanged(QTreeWidgetItem *it, int col) {
     m_tree->setCurrentItem(it);
     obs_sceneitem_t *item = currentItem();
     if (!item) return;
-    if (col == 1) obs_sceneitem_set_visible(item, it->checkState(1) == Qt::Checked);
-    if (col == 2) obs_sceneitem_set_locked(item, it->checkState(2) == Qt::Checked);
     if (col == 0) {
         const QString n = it->text(0).trimmed();
         OBSSourceAutoRelease ex = obs_get_source_by_name(n.toUtf8().constData());
@@ -255,32 +286,22 @@ void SourcesPanel::onItemChanged(QTreeWidgetItem *it, int col) {
     }
 }
 
-static const QList<QPair<QString, QString>> &widgetKinds() {
-    static const QList<QPair<QString, QString>> k = {
-        {"alerts", QObject::tr("Alert box")}, {"chat", QObject::tr("Chat box")}, {"events", QObject::tr("Event list")},
-        {"label", QObject::tr("Stream label")}, {"goal", QObject::tr("Goal bar")}, {"countdown", QObject::tr("Countdown")},
-        {"stopwatch", QObject::tr("Stopwatch")}, {"social", QObject::tr("Social panel")}, {"sponsor", QObject::tr("Sponsor panel")},
-        {"viewers", QObject::tr("Viewer count")}, {"text_panel", QObject::tr("Text panel")}};
-    return k;
-}
-
-void SourcesPanel::addWidgetOfKind(const QString &kind, const QString &pack) {
-    OBSDataAutoRelease st = obs_data_create();
-    obs_data_set_string(st, "kind", kind.toUtf8().constData());
+// Adds a widget from the catalog (overlays/WidgetCatalog.cpp). An unknown id is treated
+// as a bare widget kind so older callers keep working.
+void SourcesPanel::addWidgetOfKind(const QString &catalogId, const QString &pack) {
+    const WidgetCatalogEntry *entry = widgetCatalogEntry(catalogId);
+    OBSDataAutoRelease st = obs_data_create_from_json(QJsonDocument(entry ? entry->defaults : QJsonObject{{"kind", catalogId}}).toJson().constData());
     obs_data_set_string(st, "pack", pack.toUtf8().constData());
-    QSize sz(800, 240);
-    if (kind == "chat") sz = {520, 680};
-    else if (kind == "events") sz = {480, 420};
-    else if (kind == "goal" || kind == "label" || kind == "viewers") sz = {720, 140};
-    else if (kind == "social" || kind == "sponsor") sz = {520, 260};
+    obs_video_info ovi{}; obs_get_video_info(&ovi);
+    QSize sz = entry ? entry->size : QSize(800, 240);
+    // full-canvas widgets (ambience) follow the canvas size
+    if (sz == QSize(1920, 1080)) sz = QSize(int(ovi.base_width), int(ovi.base_height));
     obs_data_set_int(st, "width", sz.width());
     obs_data_set_int(st, "height", sz.height());
-    QString name;
-    for (const auto &k : widgetKinds()) if (k.first == kind) name = k.second;
-    if (obs_sceneitem_t *item = Engine::instance().addSource(m_preview->sceneName(), "bc_widget", name + " ♡", st)) {
-        obs_video_info ovi{}; obs_get_video_info(&ovi);
-        vec2 pos{float(ovi.base_width - sz.width()) / 2, float(ovi.base_height - sz.height()) / 2};
-        if (kind == "chat") pos = {float(ovi.base_width - sz.width() - 30), 30};
+    const QString name = entry ? entry->name : widgetKindName(catalogId);
+    if (obs_sceneitem_t *item = Engine::instance().addSource(m_preview->sceneName(), "bc_widget", name, st)) {
+        vec2 pos{float(int(ovi.base_width) - sz.width()) / 2, float(int(ovi.base_height) - sz.height()) / 2};
+        if (catalogId == "chat") pos = {float(int(ovi.base_width) - sz.width() - 30), 30};
         obs_sceneitem_set_pos(item, &pos);
         m_preview->selectItem(item);
     }
@@ -289,7 +310,7 @@ void SourcesPanel::addWidgetOfKind(const QString &kind, const QString &pack) {
 void SourcesPanel::addSourceMenu(QWidget *anchor) {
     auto &eng = Engine::instance();
     QMenu menu(this);
-    const QHash<QString, QString> catNames = {{"capture", tr("Capture ✦")}, {"audio", tr("Audio ♪")},
+    const QHash<QString, QString> catNames = {{"capture", tr("Capture")}, {"audio", tr("Audio")},
                                               {"media", tr("Media && images")}, {"creative", tr("Text, colour && creative")}};
     QHash<QString, QMenu *> subs;
     for (const QString &c : {"capture", "audio", "media", "creative"}) subs[c] = menu.addMenu(catNames[c]);
@@ -307,8 +328,14 @@ void SourcesPanel::addSourceMenu(QWidget *anchor) {
             (new PropertiesDialog(obs_sceneitem_get_source(item), this))->show();
         });
     }
-    QMenu *w = menu.addMenu(tr("Widgets ♡"));
-    for (const auto &k : widgetKinds()) w->addAction(k.second, this, [this, id = k.first] { addWidgetOfKind(id); });
+    QMenu *w = menu.addMenu(tr("Widgets"));
+    w->addAction(tr("Widget Gallery…"), this, [this] { Q_EMIT galleryRequested(); });
+    w->addSeparator();
+    for (const QString &cat : widgetCategories()) {
+        QMenu *sub = w->addMenu(cat);
+        for (const auto &e : widgetCatalog())
+            if (e.category == cat) { QAction *a = sub->addAction(e.name, this, [this, id = e.id] { addWidgetOfKind(id); }); a->setToolTip(e.description); }
+    }
     menu.addSeparator();
     QMenu *existing = menu.addMenu(tr("Add existing source"));
     obs_enum_sources([](void *p, obs_source_t *s) {
@@ -415,18 +442,25 @@ void LevelMeter::paintEvent(QPaintEvent *) {
     p.setRenderHint(QPainter::Antialiasing);
     const QRectF r = rect().adjusted(0, 1, -16, -1);
     auto x = [&](float db) { return r.left() + r.width() * qBound(0.0, (db + 60.0) / 60.0, 1.0); };
-    p.setPen(Qt::NoPen); p.setBrush(QColor(237, 228, 255)); p.drawRoundedRect(r, 5, 5);
+    p.setPen(QPen(theme::Shadow, 1)); p.setBrush(theme::Void); p.drawRect(r);
+    // verdigris (safe) → old gold (loud) → blood (about to clip)
     QLinearGradient g(r.topLeft(), r.topRight());
-    g.setColorAt(0, theme::PastelMint); g.setColorAt(0.7, theme::CottonCandy); g.setColorAt(0.92, theme::BlushPink); g.setColorAt(1, QColor("#E0457B"));
+    g.setColorAt(0, theme::Verdigris.darker(140)); g.setColorAt(0.62, theme::Verdigris);
+    g.setColorAt(0.80, theme::OldGold); g.setColorAt(0.93, theme::Blood); g.setColorAt(1, QColor("#FF3A52"));
+    p.setPen(Qt::NoPen);
     p.setBrush(g);
-    p.drawRoundedRect(QRectF(r.left(), r.top(), x(m_peak) - r.left(), r.height()), 5, 5);
-    p.setBrush(QColor(255, 255, 255, 120));
-    p.drawRect(QRectF(r.left(), r.top(), x(m_mag) - r.left(), r.height() / 3));
-    p.setBrush(theme::DeepRose);
+    p.drawRect(QRectF(r.left() + 1, r.top() + 1, x(m_peak) - r.left() - 1, r.height() - 2));
+    p.setBrush(QColor(255, 255, 255, 60));
+    p.drawRect(QRectF(r.left() + 1, r.top() + 1, x(m_mag) - r.left() - 1, (r.height() - 2) / 3));
+    // tick marks every 6 dB
+    p.setPen(QPen(QColor(0, 0, 0, 120), 1));
+    for (int db = -54; db < 0; db += 6) p.drawLine(QPointF(x(float(db)), r.top() + 1), QPointF(x(float(db)), r.bottom() - 1));
+    p.setPen(Qt::NoPen);
+    p.setBrush(theme::Parchment);
     p.drawRect(QRectF(x(m_hold) - 1, r.top(), 2, r.height()));
     const bool clip = QDateTime::currentMSecsSinceEpoch() - m_clipMs < 1000;
-    p.setBrush(clip ? QColor("#E0457B") : QColor(220, 210, 220));
-    p.drawEllipse(QPointF(rect().right() - 7, rect().center().y()), 5, 5);
+    p.setBrush(clip ? QColor("#FF3A52") : theme::Shadow);
+    p.drawPath(gothic::diamond(QPointF(rect().right() - 7, rect().center().y()), 5));
 }
 
 AudioStrip::AudioStrip(obs_source_t *src, QWidget *parent) : QWidget(parent), m_src(src) {
@@ -437,10 +471,10 @@ AudioStrip::AudioStrip(obs_source_t *src, QWidget *parent) : QWidget(parent), m_
     auto *name = new QLabel(QString::fromUtf8(obs_source_get_name(src)));
     name->setStyleSheet("font-weight:700;");
     m_db = new QLabel("-inf dB"); m_db->setObjectName("Muted");
-    m_mute = tinyButton("🔊", tr("Mute"), this); m_mute->setCheckable(true);
+    m_mute = iconButton("speaker", tr("Mute"), this); m_mute->setCheckable(true);
     m_solo = tinyButton("S", tr("Solo (mute every other source)"), this); m_solo->setCheckable(true);
-    m_monitor = tinyButton("🎧", tr("Monitor (hear this source in your headphones)"), this); m_monitor->setCheckable(true);
-    auto *gear = tinyButton("⚙", tr("Filters & advanced"), this);
+    m_monitor = iconButton("headphones", tr("Monitor (hear this source in your headphones)"), this); m_monitor->setCheckable(true);
+    auto *gear = iconButton("gear", tr("Filters & advanced"), this);
     top->addWidget(name, 1); top->addWidget(m_db); top->addWidget(m_mute); top->addWidget(m_solo); top->addWidget(m_monitor); top->addWidget(gear);
     lay->addLayout(top);
     m_levels = new LevelMeter(this);
@@ -460,7 +494,7 @@ AudioStrip::AudioStrip(obs_source_t *src, QWidget *parent) : QWidget(parent), m_
         const float db = obs_fader_get_db(m_fader);
         m_db->setText(std::isfinite(db) ? QString::number(db, 'f', 1) + " dB" : "-inf dB");
     });
-    connect(m_mute, &QToolButton::toggled, this, [this](bool on) { m_userMuted = on; obs_source_set_muted(m_src, on || m_soloMuted); m_mute->setText(on ? "🔇" : "🔊"); });
+    connect(m_mute, &QToolButton::toggled, this, [this](bool on) { m_userMuted = on; obs_source_set_muted(m_src, on || m_soloMuted); m_mute->setIcon(icons::get(on ? "mute" : "speaker")); });
     connect(m_solo, &QToolButton::toggled, this, [this](bool on) { Q_EMIT soloToggled(this, on); });
     connect(m_monitor, &QToolButton::toggled, this, [this](bool on) {
         obs_source_set_monitoring_type(m_src, on ? OBS_MONITORING_TYPE_MONITOR_AND_OUTPUT : OBS_MONITORING_TYPE_NONE);
@@ -476,7 +510,7 @@ AudioStrip::AudioStrip(obs_source_t *src, QWidget *parent) : QWidget(parent), m_
     m_sigs.emplace_back(obs_source_get_signal_handler(src), "mute", [](void *d, calldata_t *cd) {
         auto *self = static_cast<AudioStrip *>(d);
         const bool muted = calldata_bool(cd, "muted");
-        QMetaObject::invokeMethod(self, [self, muted] { QSignalBlocker b(self->m_mute); if (!self->m_soloMuted) { self->m_mute->setChecked(muted); self->m_mute->setText(muted ? "🔇" : "🔊"); } }, Qt::QueuedConnection);
+        QMetaObject::invokeMethod(self, [self, muted] { QSignalBlocker b(self->m_mute); if (!self->m_soloMuted) { self->m_mute->setChecked(muted); self->m_mute->setIcon(icons::get(muted ? "mute" : "speaker")); } }, Qt::QueuedConnection);
     }, this);
     syncFromSource();
 }
@@ -496,7 +530,7 @@ void AudioStrip::syncFromSource() {
     m_db->setText(std::isfinite(db) ? QString::number(db, 'f', 1) + " dB" : "-inf dB");
     m_userMuted = obs_source_muted(m_src);
     m_mute->setChecked(m_userMuted);
-    m_mute->setText(m_userMuted ? "🔇" : "🔊");
+    m_mute->setIcon(icons::get(m_userMuted ? "mute" : "speaker"));
     m_monitor->setChecked(obs_source_get_monitoring_type(m_src) != OBS_MONITORING_TYPE_NONE);
 }
 
@@ -616,29 +650,19 @@ void openAudioAdvanced(obs_source_t *src, QWidget *parent) {
 }
 
 // ===================================================================== Transitions dock
-static const QList<QPair<QString, QString>> &transitionChoices() {
-    static const QList<QPair<QString, QString>> l = {
-        {"fade_transition", QObject::tr("Fade")}, {"cut_transition", QObject::tr("Cut")},
-        {"bc_luma_heart", QObject::tr("♡ Heart Iris")}, {"bc_luma_star", QObject::tr("★ Star Burst")},
-        {"bc_luma_ribbon", QObject::tr("🎀 Ribbon Sweep")}, {"bc_luma_sparkle", QObject::tr("✦ Sparkle Dissolve")},
-        {"fade_to_color_transition", QObject::tr("Fade to colour")}, {"swipe_transition", QObject::tr("Swipe")},
-        {"slide_transition", QObject::tr("Slide")}, {"wipe_transition", QObject::tr("Luma wipe")},
-        {"obs_stinger_transition", QObject::tr("Stinger (video)")}};
-    return l;
-}
-
 TransitionsPanel::TransitionsPanel(QWidget *parent) : QWidget(parent) {
     auto *lay = new QVBoxLayout(this);
     lay->setContentsMargins(6, 6, 6, 6);
     m_combo = new QComboBox;
-    const QStringList avail = Engine::instance().transitionTypes();
-    for (const auto &[id, name] : transitionChoices()) {
-        const bool ok = id.startsWith("bc_luma_") ? avail.contains("wipe_transition") : avail.contains(id);
-        if (ok) m_combo->addItem(name, id);
+    QString group;
+    for (const auto &pr : Engine::instance().transitionPresets()) {
+        if (pr.group != group && m_combo->count()) m_combo->insertSeparator(m_combo->count());
+        group = pr.group;
+        m_combo->addItem(pr.name, pr.id);
     }
     auto *row = new QHBoxLayout;
     row->addWidget(m_combo, 1);
-    auto *gear = tinyButton("⚙", tr("Transition properties"), this);
+    auto *gear = iconButton("gear", tr("Transition properties"), this);
     row->addWidget(gear);
     lay->addLayout(row);
     auto *dur = new QHBoxLayout;
@@ -647,7 +671,7 @@ TransitionsPanel::TransitionsPanel(QWidget *parent) : QWidget(parent) {
     dur->addWidget(m_duration, 1);
     lay->addLayout(dur);
     auto *go = new QPushButton(tr("Transition ➜"));
-    go->setProperty("accent", "pink");
+    go->setProperty("accent", "primary");
     go->setToolTip(tr("Send the preview scene to program (studio mode)"));
     lay->addWidget(go);
     lay->addStretch();
@@ -716,10 +740,10 @@ FiltersDialog::FiltersDialog(obs_source_t *src, QWidget *parent) : QDialog(paren
     m_list = new QListWidget;
     left->addWidget(m_list, 1);
     auto *row = new QHBoxLayout;
-    auto *add = tinyButton("＋", tr("Add filter"), this);
-    auto *del = tinyButton("－", tr("Remove filter"), this);
-    auto *up = tinyButton("▲", tr("Move up"), this);
-    auto *down = tinyButton("▼", tr("Move down"), this);
+    auto *add = iconButton("add", tr("Add filter"), this);
+    auto *del = iconButton("remove", tr("Remove filter"), this);
+    auto *up = iconButton("up", tr("Move up"), this);
+    auto *down = iconButton("down", tr("Move down"), this);
     for (auto *b : {add, del, up, down}) row->addWidget(b);
     row->addStretch();
     left->addLayout(row);
@@ -791,7 +815,7 @@ void FiltersDialog::showFilter(obs_source_t *f) {
     while (QLayoutItem *it = l->takeAt(0)) { delete it->widget(); delete it; }
     if (f) l->addWidget(new PropertiesView(f, m_propsHost));
     else {
-        auto *hint = new QLabel(tr("No filters yet ✦\nClick ＋ to add noise suppression, a compressor, colour correction, chroma key, LUTs and more."));
+        auto *hint = new QLabel(tr("No filters yet.\nClick ＋ to add noise suppression, a compressor, colour correction, chroma key, LUTs and more."));
         hint->setWordWrap(true); hint->setAlignment(Qt::AlignCenter);
         l->addWidget(hint);
     }

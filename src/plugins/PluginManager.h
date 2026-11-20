@@ -17,7 +17,7 @@ struct PluginEntry {
     QString error;
 };
 
-// Discovers plugins in %APPDATA%/HeartCast/plugins/<id>/ (each with plugin.json),
+// Discovers plugins in %APPDATA%/KovaLive/plugins/<id>/ (each with plugin.json),
 // verifies SHA-256 against the manifest and the Authenticode signature (Windows),
 // and loads only plugins the user explicitly enabled after seeing permissions.
 // NOTE: native plugins run in-process — permissions gate the HostApi surface, they

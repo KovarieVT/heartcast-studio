@@ -8,8 +8,8 @@ namespace bc {
 
 // Lets the user paste the OAuth Client IDs they registered with Twitch / Google,
 // with the exact console steps beside each field. Values go to SecureStore (DPAPI).
-// These identify the user's HeartCast registration to the platform. They are not the
-// user's account password, which HeartCast never asks for.
+// These identify the user's KovaLive registration to the platform. They are not the
+// user's account password, which KovaLive never asks for.
 class DeveloperCredentialsDialog : public QDialog {
     Q_OBJECT
 public:

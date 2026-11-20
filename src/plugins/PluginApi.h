@@ -1,11 +1,11 @@
 #pragma once
 // ============================================================================
-//  HeartCast Studio — App Plugin API v1
+//  KovaLive! — App Plugin API v1
 //  Build a Qt plugin (Q_PLUGIN_METADATA with this IID) as a DLL and ship it with
 //  a plugin.json manifest. See docs/PLUGIN-API.md.
 //
 //  For new SOURCES / FILTERS / TRANSITIONS / ENCODERS / OUTPUTS write a standard
-//  libobs module instead — HeartCast loads those natively (plugins/obs/…).
+//  libobs module instead — KovaLive loads those natively (plugins/obs/…).
 // ============================================================================
 #include <QIcon>
 #include <QJsonObject>
@@ -37,9 +37,9 @@ public:
     virtual void log(const QString &message) = 0;
 };
 
-class HeartCastPlugin {
+class KovaLivePlugin {
 public:
-    virtual ~HeartCastPlugin() = default;
+    virtual ~KovaLivePlugin() = default;
     virtual QString id() const = 0;
     virtual QString name() const = 0;
     virtual QString version() const = 0;
@@ -49,5 +49,5 @@ public:
 
 } // namespace bc
 
-#define HeartCastPlugin_iid "studio.heartcast.Plugin/1.0"
-Q_DECLARE_INTERFACE(bc::HeartCastPlugin, HeartCastPlugin_iid)
+#define KovaLivePlugin_iid "studio.kovalive.Plugin/1.0"
+Q_DECLARE_INTERFACE(bc::KovaLivePlugin, KovaLivePlugin_iid)

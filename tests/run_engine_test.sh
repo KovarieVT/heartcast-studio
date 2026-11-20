@@ -13,7 +13,7 @@ ffmpeg -loglevel error -listen 1 -i rtmp://127.0.0.1:19350/live/keya -c copy -f 
 ffmpeg -loglevel error -listen 1 -i rtmp://127.0.0.1:19351/live/keyb -c copy -f flv "$OUT/b.flv" & FB=$!
 sleep 1
 export HC_RTMP_A=rtmp://127.0.0.1:19350/live HC_RTMP_B=rtmp://127.0.0.1:19351/live
-"$BUILD/tests/heartcast_engine_test" -platform xcb
+"$BUILD/tests/kovalive_engine_test" -platform xcb
 RC=$?
 sleep 2
 kill $FA $FB 2>/dev/null; wait $FA $FB 2>/dev/null

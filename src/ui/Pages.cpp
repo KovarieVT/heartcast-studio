@@ -5,10 +5,11 @@
 #include "core/Paths.h"
 #include "core/Settings.h"
 #include "engine/Engine.h"
+#include "overlays/WidgetCatalog.h"
 #include "overlays/WidgetManager.h"
 #include "platforms/PlatformHub.h"
 #include "plugins/PluginManager.h"
-#include "ui/KawaiiPainter.h"
+#include "ui/GothicPainter.h"
 #include "ui/PropertiesView.h"
 #include "ui/StudioDocks.h"
 
@@ -59,11 +60,11 @@ namespace bc {
 // ---------------------------------------------------------------- helpers
 QString platformBadge(const QString &id) {
     const PlatformInfo p = PlatformCatalog::get(id);
-    return QStringLiteral("<span style='color:%1;font-weight:800'>●</span> %2").arg(p.color.isEmpty() ? "#C96F9D" : p.color, p.name.isEmpty() ? id : p.name);
+    return QStringLiteral("<span style='color:%1;font-weight:800'>●</span> %2").arg(p.color.isEmpty() ? "#C8283F" : p.color, p.name.isEmpty() ? id : p.name);
 }
 
 static QLabel *heading(const QString &t, const QString &obj = "H1") { auto *l = new QLabel(t); l->setObjectName(obj); return l; }
-static QPushButton *accentButton(const QString &t, const char *accent = "pink") { auto *b = new QPushButton(t); b->setProperty("accent", accent); return b; }
+static QPushButton *accentButton(const QString &t, const char *accent = "primary") { auto *b = new QPushButton(t); b->setProperty("accent", accent); return b; }
 static QString fmtDur(qint64 ms) { const qint64 s = ms / 1000; return QStringLiteral("%1:%2:%3").arg(s / 3600, 2, 10, QChar('0')).arg((s / 60) % 60, 2, 10, QChar('0')).arg(s % 60, 2, 10, QChar('0')); }
 static void setPill(QLabel *l, const QString &kind, const QString &text) {
     l->setProperty("pill", kind); l->setText(text);
@@ -108,123 +109,22 @@ protected:
             p.setPen(QPen(c, 2.2)); p.setBrush(Qt::NoBrush); p.drawPath(path);
         };
         double maxKb = 1000; for (double v : h.kbps) maxKb = qMax(maxKb, v * 1.15);
-        line(h.cpu, 100, theme::BlushPink);
-        line(h.gpu, 100, theme::Lavender.darker(120));
-        line(h.kbps, maxKb, theme::MintAccent);
-        p.setPen(theme::Charcoal);
+        line(h.cpu, 100, theme::Blood);
+        line(h.gpu, 100, theme::Amethyst.lighter(130));
+        line(h.kbps, maxKb, theme::OldGold);
+        p.setPen(theme::Bone);
         p.drawText(QRectF(12, height() - 22, width(), 20), Qt::AlignLeft,
                    QObject::tr("— CPU %   — GPU %   — upload kbps (max %1)   · last 10 min").arg(int(maxKb)));
     }
 };
 
-// ===================================================================== Home
-HomePage::HomePage(QWidget *parent) : QWidget(parent) {
-    auto *lay = new QVBoxLayout(this);
-    auto *top = new QHBoxLayout;
-    top->addWidget(heading(tr("Welcome back, cutie ♡")));
-    top->addStretch();
-    m_live = new QLabel; m_rec = new QLabel;
-    top->addWidget(m_live); top->addWidget(m_rec);
-    auto *go = accentButton(tr("✦ Go Live"));
-    go->setMinimumHeight(40);
-    connect(go, &QPushButton::clicked, this, &HomePage::goLiveRequested);
-    top->addWidget(go);
-    lay->addLayout(top);
-
-    auto *grid = new QGridLayout;
-    grid->setSpacing(12);
-    const QList<QPair<QString, QString>> tiles = {
-        {"stream", tr("Stream")}, {"duration", tr("Duration")}, {"platforms", tr("Connected platforms")},
-        {"scene", tr("Current scene")}, {"resolution", tr("Output")}, {"fps", tr("Frame rate")},
-        {"bitrate", tr("Upload bitrate")}, {"dropped", tr("Dropped frames")}, {"network", tr("Network")},
-        {"cpu", tr("CPU")}, {"gpu", tr("GPU")}, {"ram", tr("Memory (app)")},
-        {"recording", tr("Recording")}, {"audio", tr("Microphone")}, {"viewers", tr("Viewers")}};
-    for (int i = 0; i < tiles.size(); ++i) {
-        auto *box = new QFrame; box->setObjectName("GlassPanel");
-        auto *v = new QVBoxLayout(box);
-        auto *cap = new QLabel(tiles[i].second); cap->setObjectName("Muted");
-        auto *val = new QLabel("—"); val->setObjectName("H2"); val->setTextFormat(Qt::RichText); val->setWordWrap(true);
-        v->addWidget(cap); v->addWidget(val);
-        m_tiles.insert(tiles[i].first, val);
-        grid->addWidget(box, i / 5, i % 5);
-    }
-    lay->addLayout(grid);
-
-    auto *scenesBox = new QGroupBox(tr("Quick scene switch"));
-    m_sceneGrid = new QGridLayout(scenesBox);
-    lay->addWidget(scenesBox);
-    lay->addStretch();
-    connect(&Engine::instance(), &Engine::scenesChanged, this, &HomePage::refresh);
-    refresh();
-}
-
-void HomePage::refresh() {
-    auto &e = Engine::instance();
-    auto &h = SessionHistory::instance();
-    const bool live = e.isStreaming();
-    setPill(m_live, live ? "live" : "off", live ? tr("● LIVE") : tr("Offline"));
-    setPill(m_rec, e.isRecording() ? "rec" : "off", e.isRecordingPaused() ? tr("❚❚ Paused") : e.isRecording() ? tr("● REC") : tr("Not recording"));
-
-    QStringList parts; int errors = 0, reconnecting = 0; double kb = 0; int dropped = 0, total = 0;
-    for (const auto &d : PlatformHub::instance().destinations()) {
-        if (!d.enabled) continue;
-        const auto st = e.destinationStatus(d.id);
-        kb += st.kbps; dropped += st.droppedFrames; total += st.totalFrames;
-        if (st.state == OutputState::Error) ++errors;
-        if (st.state == OutputState::Reconnecting) ++reconnecting;
-        parts << QStringLiteral("%1 <small>%2</small>").arg(platformBadge(d.platform), outputStateName(st.state));
-    }
-    m_tiles["stream"]->setText(parts.isEmpty() ? tr("No destinations yet") : parts.join("<br>"));
-    m_tiles["duration"]->setText(h.liveStartMs ? fmtDur(QDateTime::currentMSecsSinceEpoch() - h.liveStartMs) : "00:00:00");
-    QStringList acc;
-    for (auto *a : PlatformHub::instance().accounts()) if (a->isConnected()) acc << platformBadge(a->platformId()) + " " + a->accountName().toHtmlEscaped();
-    m_tiles["platforms"]->setText(acc.isEmpty() ? tr("None connected") : acc.join("<br>"));
-    m_tiles["scene"]->setText(e.programScene().toHtmlEscaped());
-    obs_video_info ovi{}; obs_get_video_info(&ovi);
-    m_tiles["resolution"]->setText(QStringLiteral("%1×%2").arg(ovi.output_width).arg(ovi.output_height));
-    const auto es = e.stats();
-    m_tiles["fps"]->setText(QStringLiteral("%1 fps").arg(es.activeFps, 0, 'f', 1));
-    m_tiles["bitrate"]->setText(live ? QStringLiteral("%1 kbps").arg(int(kb)) : "—");
-    m_tiles["dropped"]->setText(total ? QStringLiteral("%1 (%2%)").arg(dropped).arg(100.0 * dropped / total, 0, 'f', 2) : "0");
-    m_tiles["network"]->setText(!live ? tr("Idle") : errors ? tr("<span style='color:#C9467F'>%n error(s)</span>", nullptr, errors)
-                                : reconnecting ? tr("Reconnecting…") : tr("<span style='color:#3E9C7E'>Healthy ♡</span>"));
-    m_tiles["cpu"]->setText(QStringLiteral("%1%").arg(h.lastCpu, 0, 'f', 0));
-    m_tiles["gpu"]->setText(h.lastGpu < 0 ? tr("n/a") : QStringLiteral("%1%").arg(h.lastGpu, 0, 'f', 0));
-    m_tiles["ram"]->setText(QStringLiteral("%1 MB").arg(h.lastRamMB));
-    m_tiles["recording"]->setText(e.isRecording() ? tr("Recording ●") : e.isReplayBufferActive() ? tr("Replay buffer on") : tr("Off"));
-    obs_source_t *mic = e.micAudio();
-    m_tiles["audio"]->setText(!mic ? tr("No mic") : obs_source_muted(mic) ? tr("<span style='color:#C9467F'>Muted</span>") : tr("Active"));
-    const int v = PlatformHub::instance().totalViewers();
-    m_tiles["viewers"]->setText(v < 0 ? "—" : QString::number(v));
-
-    // scene buttons
-    if (m_sceneGrid->count() != e.sceneOrder().size()) {
-        while (QLayoutItem *it = m_sceneGrid->takeAt(0)) { delete it->widget(); delete it; }
-        int i = 0;
-        for (const QString &n : e.sceneOrder()) {
-            auto *b = new QPushButton(n);
-            b->setCheckable(true);
-            connect(b, &QPushButton::clicked, this, [n] { Engine::instance().transitionTo(n); });
-            m_sceneGrid->addWidget(b, i / 6, i % 6); ++i;
-        }
-    }
-    for (int i = 0; i < m_sceneGrid->count(); ++i)
-        if (auto *b = qobject_cast<QPushButton *>(m_sceneGrid->itemAt(i)->widget())) b->setChecked(b->text() == e.programScene());
-}
 
 // ===================================================================== Stream manager
 StreamManagerPage::StreamManagerPage(QWidget *parent) : QWidget(parent) {
+    // Lives in Settings → Stream (like OBS). Going live is done from the Controls dock.
     auto *lay = new QVBoxLayout(this);
-    auto *top = new QHBoxLayout;
-    top->addWidget(heading(tr("Stream Manager")));
-    top->addStretch();
     auto *testNet = new QPushButton(tr("Test connections"));
-    auto *startAll = accentButton(tr("✦ Start all"));
-    auto *stopAll = new QPushButton(tr("Stop all"));
-    top->addWidget(testNet); top->addWidget(startAll); top->addWidget(stopAll);
-    lay->addLayout(top);
 
-    auto *split = new QSplitter;
     // ---- destinations
     auto *destBox = new QGroupBox(tr("Destinations (multistream)"));
     auto *dl = new QVBoxLayout(destBox);
@@ -234,30 +134,36 @@ StreamManagerPage::StreamManagerPage(QWidget *parent) : QWidget(parent) {
     m_dest->setSelectionBehavior(QAbstractItemView::SelectRows);
     m_dest->setEditTriggers(QAbstractItemView::NoEditTriggers);
     m_dest->verticalHeader()->hide();
+    m_dest->setMinimumHeight(170);
     dl->addWidget(m_dest, 1);
     auto *drow = new QHBoxLayout;
-    auto *add = accentButton(tr("＋ Add destination"), "mint");
+    auto *add = accentButton(tr("Add destination…"), "secondary");
     auto *edit = new QPushButton(tr("Edit…"));
     auto *del = new QPushButton(tr("Remove"));
     auto *stopOne = new QPushButton(tr("Stop selected"));
     for (auto *b : {add, edit, del, stopOne}) drow->addWidget(b);
     drow->addStretch();
+    drow->addWidget(testNet);
     dl->addLayout(drow);
     m_bandwidth = new QLabel; m_bandwidth->setWordWrap(true); m_bandwidth->setObjectName("Muted");
     dl->addWidget(m_bandwidth);
-    split->addWidget(destBox);
+    lay->addWidget(destBox, 3);
 
-    // ---- accounts + stream info
-    auto *right = new QWidget; auto *rl = new QVBoxLayout(right); rl->setContentsMargins(0, 0, 0, 0);
+    // ---- accounts | stream info
+    auto *bottom = new QHBoxLayout;
+    auto *left = new QWidget; auto *ll = new QVBoxLayout(left); ll->setContentsMargins(0, 0, 0, 0);
     auto *accBox = new QGroupBox(tr("Connected accounts"));
     m_accounts = new QVBoxLayout(accBox);
     m_deviceCode = new QLabel; m_deviceCode->setWordWrap(true); m_deviceCode->setTextInteractionFlags(Qt::TextSelectableByMouse);
-    rl->addWidget(accBox);
-    rl->addWidget(m_deviceCode);
+    ll->addWidget(accBox);
+    ll->addWidget(m_deviceCode);
+    ll->addStretch();
+    bottom->addWidget(left, 1);
+    auto *right = new QWidget; auto *rl = new QVBoxLayout(right); rl->setContentsMargins(0, 0, 0, 0);
     auto *infoBox = new QGroupBox(tr("Stream info"));
     auto *form = new QFormLayout(infoBox);
     m_title = new QLineEdit(Settings::instance().s("stream.title"));
-    m_title->setPlaceholderText(tr("cozy stream ♡"));
+    m_title->setPlaceholderText(tr("Stream title"));
     m_category = new QLineEdit(Settings::instance().s("stream.category"));
     m_category->setPlaceholderText(tr("e.g. Just Chatting (Twitch) / 20 = Gaming (YouTube category id)"));
     m_desc = new QPlainTextEdit(Settings::instance().s("stream.description"));
@@ -268,13 +174,12 @@ StreamManagerPage::StreamManagerPage(QWidget *parent) : QWidget(parent) {
     form->addRow(tr("Category / game"), m_category);
     form->addRow(tr("Description"), m_desc);
     form->addRow(tr("YouTube privacy"), m_privacy);
-    auto *push = accentButton(tr("Update on connected platforms"), "mint");
+    auto *push = accentButton(tr("Update on connected platforms"), "secondary");
     form->addRow(push);
     rl->addWidget(infoBox);
     rl->addStretch();
-    split->addWidget(right);
-    split->setStretchFactor(0, 3); split->setStretchFactor(1, 2);
-    lay->addWidget(split, 1);
+    bottom->addWidget(right, 1);
+    lay->addLayout(bottom, 2);
 
     auto &hub = PlatformHub::instance();
     connect(add, &QPushButton::clicked, this, [this] { editDestination({}); });
@@ -289,8 +194,6 @@ StreamManagerPage::StreamManagerPage(QWidget *parent) : QWidget(parent) {
     connect(stopOne, &QPushButton::clicked, this, [this] {
         if (m_dest->currentRow() >= 0) Engine::instance().stopDestination(m_dest->item(m_dest->currentRow(), 2)->data(Qt::UserRole).toString());
     });
-    connect(startAll, &QPushButton::clicked, this, &StreamManagerPage::goLiveRequested);
-    connect(stopAll, &QPushButton::clicked, this, [] { PlatformHub::instance().endLive(); });
     connect(testNet, &QPushButton::clicked, this, &StreamManagerPage::testNetwork);
     connect(m_dest, &QTableWidget::cellChanged, this, [this](int r, int c) {
         if (c != 0) return;
@@ -307,7 +210,7 @@ StreamManagerPage::StreamManagerPage(QWidget *parent) : QWidget(parent) {
             if (!a->isConnected()) continue;
             ++n;
             a->updateStreamInfo(m_title->text(), m_category->text(), m_desc->toPlainText(), [a](bool ok, const QString &err) {
-                Q_EMIT PlatformHub::instance().notice(ok ? tr("%1 stream info updated ♡").arg(PlatformCatalog::get(a->platformId()).name)
+                Q_EMIT PlatformHub::instance().notice(ok ? tr("%1 stream info updated").arg(PlatformCatalog::get(a->platformId()).name)
                                                          : tr("%1: %2").arg(PlatformCatalog::get(a->platformId()).name, err), !ok);
             });
         }
@@ -316,7 +219,7 @@ StreamManagerPage::StreamManagerPage(QWidget *parent) : QWidget(parent) {
     connect(&hub, &PlatformHub::destinationsChanged, this, &StreamManagerPage::reloadDestinations);
     connect(&hub, &PlatformHub::accountsChanged, this, &StreamManagerPage::reloadAccounts);
     connect(&hub, &PlatformHub::deviceCode, this, [this](const QString &p, const QString &code, const QString &url) {
-        m_deviceCode->setText(tr("<b>%1 sign-in:</b> your browser opened <a href='%2'>%2</a>. Enter the code <b style='font-size:16pt;color:#C96F9D'>%3</b> there and approve HeartCast.")
+        m_deviceCode->setText(tr("<b>%1 sign-in:</b> your browser opened <a href='%2'>%2</a>. Enter the code <b style='font-size:16pt;color:#E0606F'>%3</b> there and approve KovaLive.")
                               .arg(PlatformCatalog::get(p).name, url, code));
         m_deviceCode->setOpenExternalLinks(true);
     });
@@ -370,7 +273,7 @@ void StreamManagerPage::refreshStatus() {
         auto *it = m_dest->item(r, 5);
         it->setText(t);
         it->setToolTip(st.error);
-        it->setForeground(st.state == OutputState::Live ? QColor("#3E9C7E") : st.state == OutputState::Error ? QColor("#C9467F") : theme::Charcoal);
+        it->setForeground(st.state == OutputState::Live ? theme::Verdigris.lighter(130) : st.state == OutputState::Error ? theme::Blood.lighter(120) : theme::Bone);
     }
 }
 
@@ -381,7 +284,7 @@ void StreamManagerPage::reloadAccounts() {
         auto *row = new QWidget; auto *h = new QHBoxLayout(row); h->setContentsMargins(0, 0, 0, 0);
         auto *lbl = new QLabel(platformBadge(id) + (a && a->isConnected() ? " — " + a->accountName().toHtmlEscaped() : tr(" — not connected")));
         h->addWidget(lbl, 1);
-        auto *btn = a && a->isConnected() ? new QPushButton(tr("Disconnect")) : accentButton(tr("Connect"), "mint");
+        auto *btn = a && a->isConnected() ? new QPushButton(tr("Disconnect")) : accentButton(tr("Connect"), "secondary");
         connect(btn, &QPushButton::clicked, this, [this, a, id] {
             if (!a) return;
             if (a->isConnected()) { a->disconnectAccount(); return; }
@@ -484,7 +387,7 @@ RecordingPage::RecordingPage(QWidget *parent) : QWidget(parent) {
     auto *rec = accentButton(tr("● Record"));
     auto *pause = new QPushButton(tr("❚❚ Pause"));
     auto *replay = new QPushButton(tr("Replay buffer"));
-    auto *save = accentButton(tr("Save replay ✦"), "mint");
+    auto *save = accentButton(tr("Save replay"), "secondary");
     for (auto *b : {rec, pause, replay, save}) top->addWidget(b);
     lay->addLayout(top);
     m_info = new QLabel; m_info->setObjectName("Muted"); m_info->setWordWrap(true);
@@ -515,7 +418,7 @@ RecordingPage::RecordingPage(QWidget *parent) : QWidget(parent) {
         if (e.isReplayBufferActive()) e.stopReplayBuffer();
         else if (!e.startReplayBuffer(&err)) QMessageBox::warning(this, tr("Replay buffer"), err);
     });
-    connect(save, &QPushButton::clicked, this, [this] { if (!Engine::instance().saveReplay()) QMessageBox::information(this, tr("Replay"), tr("Start the replay buffer first ♡")); });
+    connect(save, &QPushButton::clicked, this, [this] { if (!Engine::instance().saveReplay()) QMessageBox::information(this, tr("Replay"), tr("Start the replay buffer first.")); });
     connect(openF, &QPushButton::clicked, this, [] { QDesktopServices::openUrl(QUrl::fromLocalFile(Settings::instance().s("recording.path"))); });
     connect(refresh, &QPushButton::clicked, this, &RecordingPage::reloadLibrary);
     connect(&e, &Engine::recordingStateChanged, this, [this] { refreshStatus(); QTimer::singleShot(1500, this, &RecordingPage::reloadLibrary); });
@@ -575,9 +478,9 @@ void RecordingPage::reloadLibrary() {
         const QString thumb = thumbs + "/" + QString::number(qHash(fi.absoluteFilePath() + QString::number(fi.size()))) + ".jpg";
         QPixmap pm(thumb);
         if (pm.isNull()) {
-            pm = QPixmap(240, 135); pm.fill(theme::BabyPink);
-            QPainter p(&pm); p.setRenderHint(QPainter::Antialiasing); p.setPen(Qt::NoPen); p.setBrush(theme::CottonCandy);
-            p.drawPath(kawaii::heart(QPointF(120, 70), 50)); p.end();
+            pm = QPixmap(240, 135); pm.fill(theme::Obsidian);
+            QPainter p(&pm); p.setRenderHint(QPainter::Antialiasing); p.setPen(Qt::NoPen); p.setBrush(theme::Smoke);
+            p.drawPath(gothic::crescent(QPointF(120, 67), 30)); p.end();
             // Grab a real frame asynchronously with Qt Multimedia (no external tools).
             auto *player = new QMediaPlayer(this);
             auto *sink = new QVideoSink(player);
@@ -613,7 +516,7 @@ MediaLibraryPage::MediaLibraryPage(QWidget *parent) : QWidget(parent) {
     top->addStretch();
     m_search = new QLineEdit; m_search->setPlaceholderText(tr("Search names & tags…"));
     m_filter = new QComboBox; m_filter->addItems({tr("All"), tr("Images & GIFs"), tr("Videos"), tr("Audio")});
-    auto *imp = accentButton(tr("Import…"), "mint");
+    auto *imp = accentButton(tr("Import…"), "secondary");
     auto *newFolder = new QPushButton(tr("New folder"));
     top->addWidget(m_search); top->addWidget(m_filter); top->addWidget(newFolder); top->addWidget(imp);
     lay->addLayout(top);
@@ -680,38 +583,89 @@ MediaLibraryPage::MediaLibraryPage(QWidget *parent) : QWidget(parent) {
 }
 
 void MediaLibraryPage::ensureStarterAssets() {
-    const QString dir = Paths::ensure(Paths::mediaLibrary() + "/Starter ♡");
-    if (QFile::exists(dir + "/heart-sticker.png")) return;
-    // Original starter assets painted procedurally (no third-party artwork).
+    const QString dir = Paths::ensure(Paths::mediaLibrary() + "/Starter Pack");
+    if (QFile::exists(dir + "/gothic-webcam-frame.png")) return;
+    // Original starter art painted procedurally (no third-party artwork).
     auto save = [&](const QString &name, QSize sz, const std::function<void(QPainter &, QSize)> &fn) {
         QImage img(sz, QImage::Format_ARGB32); img.fill(Qt::transparent);
         QPainter p(&img); p.setRenderHints(QPainter::Antialiasing); fn(p, sz); p.end();
         img.save(dir + "/" + name);
     };
-    save("heart-sticker.png", {512, 512}, [](QPainter &p, QSize s) {
-        kawaii::drawGlossyHeart(p, QPointF(s.width() / 2.0, s.height() * 0.6), 330, theme::PastelRose, theme::CottonCandy, theme::DeepRose);
-        p.setPen(QPen(theme::MintAccent.darker(120), 5)); p.setBrush(theme::PastelMint);
-        p.drawPath(kawaii::bow(QPointF(s.width() / 2.0, s.height() * 0.3), 90));
+    using namespace theme;
+    save("bat-sticker.png", {512, 512}, [](QPainter &p, QSize s) {
+        gothic::drawGlow(p, QPointF(s.width() / 2.0, s.height() / 2.0), 240, Crimson, 0.6);
+        p.setPen(QPen(OldGold, 3)); p.setBrush(QColor(0x0B, 0x09, 0x0D));
+        p.drawPath(gothic::bat(QPointF(s.width() / 2.0, s.height() * 0.52), 440, 0.25));
+        p.setPen(Qt::NoPen); p.setBrush(Blood);
+        p.drawEllipse(QPointF(s.width() / 2.0 - 7, s.height() * 0.52 - 49), 3.5, 3.0);
+        p.drawEllipse(QPointF(s.width() / 2.0 + 7, s.height() * 0.52 - 49), 3.5, 3.0);
     });
-    save("heart-frame.png", {1280, 720}, [](QPainter &p, QSize s) {
-        p.setPen(QPen(theme::CottonCandy, 18)); p.setBrush(Qt::NoBrush); p.drawRoundedRect(QRectF(20, 20, s.width() - 40, s.height() - 40), 48, 48);
+    save("gothic-webcam-frame.png", {1280, 720}, [](QPainter &p, QSize s) {
+        // Lancet-window frame: transparent inside, carved stone outside the arch.
+        const QRectF win(s.width() * 0.5 - 300, 40, 600, s.height() - 70);
+        QPainterPath outside; outside.addRect(QRectF(QPointF(), QSizeF(s)));
+        outside = outside.subtracted(gothic::lancet(win));
+        QLinearGradient stone(0, 0, 0, s.height());
+        stone.setColorAt(0, QColor(0x1D, 0x19, 0x22)); stone.setColorAt(1, QColor(0x0B, 0x0A, 0x0D));
+        p.fillPath(outside, stone);
+        p.setBrush(Qt::NoBrush);
+        p.setPen(QPen(OldGold, 6)); p.drawPath(gothic::lancet(win));
+        p.setPen(QPen(Crimson, 2)); p.drawPath(gothic::lancet(win.adjusted(-12, -12, 12, 0)));
+        gothic::drawRose(p, QPointF(win.left() - 40, win.bottom() - 60), 46, Crimson, Garnet);
+        gothic::drawRose(p, QPointF(win.right() + 40, win.bottom() - 60), 46, Crimson, Garnet);
+        gothic::drawFiligreeCorner(p, QPointF(18, 18), 140, 0, OldGold, 2.4);
+        gothic::drawFiligreeCorner(p, QPointF(s.width() - 18, 18), 140, 1, OldGold, 2.4);
+        gothic::drawFiligreeCorner(p, QPointF(s.width() - 18, s.height() - 18), 140, 2, OldGold, 2.4);
+        gothic::drawFiligreeCorner(p, QPointF(18, s.height() - 18), 140, 3, OldGold, 2.4);
+    });
+    save("rose-corner.png", {420, 420}, [](QPainter &p, QSize) {
+        p.setBrush(Qt::NoBrush);
+        p.setPen(QPen(QColor(0x2C, 0x3A, 0x2E), 7, Qt::SolidLine, Qt::RoundCap));
+        QPainterPath vine; vine.moveTo(10, 400); vine.cubicTo(120, 330, 160, 220, 300, 150); vine.cubicTo(340, 130, 380, 90, 405, 20);
+        p.drawPath(vine);
+        p.setPen(Qt::NoPen); p.setBrush(QColor(0x2C, 0x3A, 0x2E));
+        for (int i = 1; i < 9; ++i) {   // thorns
+            const double t = i / 9.0; const QPointF a = vine.pointAtPercent(t);
+            const double ang = qDegreesToRadians(vine.angleAtPercent(t) + (i % 2 ? 70 : -70));
+            QPainterPath th; th.moveTo(a + QPointF(std::cos(ang + 1.4), -std::sin(ang + 1.4)) * 5); th.lineTo(a + QPointF(std::cos(ang), -std::sin(ang)) * 22);
+            th.lineTo(a + QPointF(std::cos(ang - 1.4), -std::sin(ang - 1.4)) * 5); th.closeSubpath(); p.drawPath(th);
+        }
+        gothic::drawRose(p, QPointF(150, 270), 70, Crimson, Garnet);
+        gothic::drawRose(p, QPointF(320, 130), 52, Blood, Garnet);
+    });
+    save("nocturne-background.png", {1920, 1080}, [](QPainter &p, QSize s) {
+        QLinearGradient sky(0, 0, 0, s.height());
+        sky.setColorAt(0, QColor(0x0B, 0x0A, 0x14)); sky.setColorAt(0.6, QColor(0x14, 0x0C, 0x1C)); sky.setColorAt(1, QColor(0x2A, 0x08, 0x14));
+        p.fillRect(QRect(QPoint(), s), sky);
         p.setPen(Qt::NoPen);
-        for (int i = 0; i < 14; ++i) { p.setBrush(i % 2 ? theme::PastelMint : theme::BlushPink); p.drawPath(kawaii::heart(QPointF(60 + i * 90, 30), 40)); p.drawPath(kawaii::heart(QPointF(60 + i * 90, s.height() - 30), 40)); }
+        for (int i = 0; i < 160; ++i) {   // stars
+            QColor c = Parchment; c.setAlpha(40 + (i * 37) % 140); p.setBrush(c);
+            const double r = 0.6 + (i % 5) * 0.35;
+            p.drawEllipse(QPointF((i * 571) % s.width(), (i * 293) % int(s.height() * 0.7)), r, r);
+        }
+        gothic::drawGlow(p, QPointF(1460, 260), 420, Silver, 0.5);
+        p.setBrush(Parchment); p.drawEllipse(QPointF(1460, 260), 110, 110);
+        QPainterPath skyline;   // cathedral spires
+        skyline.moveTo(0, s.height());
+        const double base = s.height() - 170;
+        for (int i = 0; i < 9; ++i) {
+            const double x = i * 230.0, w = 120 + (i % 3) * 30, top = base - 120 - (i % 4) * 90;
+            skyline.lineTo(x, base); skyline.lineTo(x + w * 0.2, base); skyline.lineTo(x + w * 0.2, top + 60);
+            skyline.lineTo(x + w * 0.5, top); skyline.lineTo(x + w * 0.8, top + 60); skyline.lineTo(x + w * 0.8, base);
+        }
+        skyline.lineTo(s.width(), base); skyline.lineTo(s.width(), s.height()); skyline.closeSubpath();
+        p.setBrush(QColor(0x07, 0x06, 0x09)); p.drawPath(skyline);
+        for (int i = 0; i < 7; ++i) {   // fog
+            QRadialGradient fog(QPointF(i * 330.0, s.height() - 60), 420);
+            fog.setColorAt(0, QColor(0x5A, 0x4A, 0x66, 50)); fog.setColorAt(1, QColor(0x5A, 0x4A, 0x66, 0));
+            p.setBrush(fog); p.drawEllipse(QPointF(i * 330.0, s.height() - 60), 460, 140);
+        }
+        p.setBrush(QColor(0x05, 0x04, 0x06));
+        for (int i = 0; i < 7; ++i) p.drawPath(gothic::bat(QPointF(1180 + i * 70.0 - (i % 2) * 30, 330 + (i * 47) % 120), 34 + (i % 3) * 10, (i % 3) - 1.0));
     });
-    save("sparkle-corner.png", {400, 400}, [](QPainter &p, QSize) {
-        p.setPen(Qt::NoPen);
-        const QColor cs[] = {theme::Lavender, theme::CottonCandy, theme::PastelMint, theme::PearlWhite};
-        for (int i = 0; i < 12; ++i) { p.setBrush(cs[i % 4]); p.drawPath(kawaii::sparkle(QPointF(30 + (i * 53) % 340, 30 + (i * 97) % 340), 14 + (i % 4) * 8)); }
-    });
-    save("pastel-background.png", {1920, 1080}, [](QPainter &p, QSize s) {
-        QLinearGradient g(0, 0, s.width(), s.height()); g.setColorAt(0, theme::BabyPink); g.setColorAt(0.5, theme::SoftLilac); g.setColorAt(1, theme::SoftMint);
-        p.fillRect(QRect(QPoint(), s), g);
-        p.setPen(Qt::NoPen);
-        for (int i = 0; i < 60; ++i) { QColor c = theme::PearlWhite; c.setAlpha(120); p.setBrush(c); p.drawPath(kawaii::star(QPointF((i * 331) % s.width(), (i * 197) % s.height()), 10 + i % 12, 4 + i % 5)); }
-    });
-    save("ribbon-banner.png", {1200, 220}, [](QPainter &p, QSize s) {
-        kawaii::drawGlossyCard(p, QRectF(40, 30, s.width() - 80, s.height() - 60), theme::PastelRose, theme::CottonCandy, theme::DeepRose, 40);
-        p.setPen(QPen(theme::MintAccent, 3)); p.setBrush(theme::PastelMint); p.drawPath(kawaii::bow(QPointF(s.width() / 2.0, 34), 60));
+    save("gothic-banner.png", {1200, 220}, [](QPainter &p, QSize s) {
+        gothic::drawGothicCard(p, QRectF(30, 30, s.width() - 60, s.height() - 60), QColor(0x1D, 0x19, 0x22), QColor(0x0B, 0x0A, 0x0D), Crimson, OldGold);
+        gothic::drawSigil(p, QPointF(s.width() / 2.0, 30), 26, Crimson, OldGold, 0.4);
     });
 }
 
@@ -748,8 +702,8 @@ void MediaLibraryPage::reload() {
         QPixmap pm;
         if (img.contains(ext)) pm = QPixmap(fi.absoluteFilePath()).scaled(128, 96, Qt::KeepAspectRatio, Qt::SmoothTransformation);
         if (pm.isNull()) {
-            pm = QPixmap(128, 96); pm.fill(vid.contains(ext) ? theme::SoftLilac : theme::SoftMint);
-            QPainter p(&pm); p.setPen(theme::DeepRose); QFont fnt("Nunito"); fnt.setPixelSize(28); p.setFont(fnt);
+            pm = QPixmap(128, 96); pm.fill(vid.contains(ext) ? theme::Plum : theme::Obsidian);
+            QPainter p(&pm); p.setPen(theme::OldGold); QFont fnt(theme::bodyFamily()); fnt.setPixelSize(28); p.setFont(fnt);
             p.drawText(pm.rect(), Qt::AlignCenter, vid.contains(ext) ? "▶" : "♪");
         }
         item->setIcon(pm);
@@ -767,7 +721,7 @@ void MediaLibraryPage::importFiles(const QStringList &files) {
         if (QFile::copy(f, target)) ++n;
     }
     reload();
-    if (n) Q_EMIT PlatformHub::instance().notice(tr("Imported %n file(s) ♡", nullptr, n), false);
+    if (n) Q_EMIT PlatformHub::instance().notice(tr("Imported %n file(s)", nullptr, n), false);
 }
 
 void MediaLibraryPage::addToScene(const QString &path) {
@@ -779,7 +733,7 @@ void MediaLibraryPage::addToScene(const QString &path) {
     else { obs_data_set_string(st, "local_file", path.toUtf8().constData()); obs_data_set_bool(st, "looping", ext == "gif" || ext == "webm"); }
     const QString scene = e.studioMode() ? e.previewScene() : e.programScene();
     if (e.addSource(scene, image ? "image_source" : "ffmpeg_source", QFileInfo(path).completeBaseName(), st))
-        Q_EMIT PlatformHub::instance().notice(tr("Added to \"%1\" ✦").arg(scene), false);
+        Q_EMIT PlatformHub::instance().notice(tr("Added to \"%1\"").arg(scene), false);
 }
 
 QStringList MediaLibraryPage::tagsFor(const QString &rel) const {
@@ -802,98 +756,187 @@ void MediaLibraryPage::dropEvent(QDropEvent *e) {
 }
 
 // ===================================================================== Widgets & Overlays
-WidgetsPage::WidgetsPage(SourcesPanel *sources, bool overlays, QWidget *parent) : QWidget(parent), m_sources(sources), m_overlays(overlays) {
+WidgetsPage::WidgetsPage(SourcesPanel *sources, QWidget *parent) : QWidget(parent), m_sources(sources) {
     auto *lay = new QVBoxLayout(this);
-    auto *top = new QHBoxLayout;
-    top->addWidget(heading(overlays ? tr("Overlay packs") : tr("Widgets & alerts")));
-    top->addStretch();
-    top->addWidget(new QLabel(tr("Pack:")));
-    m_pack = new QComboBox;
-    for (const auto &p : WidgetManager::instance().packs()) m_pack->addItem(p.emoji + " " + p.name, p.id);
-    top->addWidget(m_pack);
-    lay->addLayout(top);
-    auto *scroll = new QScrollArea; scroll->setWidgetResizable(true); scroll->setFrameShape(QFrame::NoFrame);
-    auto *host = new QWidget; m_grid = new QGridLayout(host); m_grid->setSpacing(14);
-    scroll->setWidget(host);
-    lay->addWidget(scroll, 2);
-    connect(m_pack, &QComboBox::currentIndexChanged, this, &WidgetsPage::rebuildGallery);
+    auto *tabs = new QTabWidget;
+    lay->addWidget(tabs);
 
-    if (!overlays) {
-        auto *alerts = new QGroupBox(tr("Alert rules && tests"));
-        auto *al = new QGridLayout(alerts);
-        al->addWidget(new QLabel(tr("<b>Event</b>")), 0, 0); al->addWidget(new QLabel(tr("<b>On</b>")), 0, 1);
-        al->addWidget(new QLabel(tr("<b>Min amount</b>")), 0, 2); al->addWidget(new QLabel(tr("<b>Message ({user} {amount} {message})</b>")), 0, 3);
-        int r = 1;
-        for (const QString &t : WidgetManager::alertTypes()) {
-            const AlertRule rule = WidgetManager::instance().rule(t);
-            auto *on = new QCheckBox; on->setChecked(rule.enabled);
-            auto *min = new QSpinBox; min->setRange(0, 1000000); min->setValue(int(rule.minAmount));
-            auto *tpl = new QLineEdit(rule.templ);
-            auto *test = new QPushButton(tr("Test ✦"));
-            auto save = [t, on, min, tpl] { WidgetManager::instance().setRule(t, AlertRule{on->isChecked(), double(min->value()), tpl->text()}); };
-            connect(on, &QCheckBox::toggled, this, save);
-            connect(min, &QSpinBox::valueChanged, this, save);
-            connect(tpl, &QLineEdit::editingFinished, this, save);
-            connect(test, &QPushButton::clicked, this, [t] { PlatformHub::instance().emitTestEvent(t); });
-            al->addWidget(new QLabel(t), r, 0); al->addWidget(on, r, 1); al->addWidget(min, r, 2); al->addWidget(tpl, r, 3); al->addWidget(test, r, 4);
-            ++r;
-        }
-        auto *restart = new QPushButton(tr("Restart countdowns && stopwatches"));
-        connect(restart, &QPushButton::clicked, this, [] { WidgetManager::instance().restartTimers(); });
-        al->addWidget(restart, r, 0, 1, 2);
-        auto *note = new QLabel(tr("Alert sound, duration, size and look are set per Alert box widget (double-click it in Sources). "
-                                   "Animation, font and colours come from the overlay pack."));
-        note->setWordWrap(true); note->setObjectName("Muted");
-        al->addWidget(note, r + 1, 0, 1, 5);
-        lay->addWidget(alerts, 1);
+    // ---- gallery
+    auto *gallery = new QWidget;
+    auto *gl = new QVBoxLayout(gallery);
+    auto *top = new QHBoxLayout;
+    m_search = new QLineEdit; m_search->setPlaceholderText(tr("Search widgets…")); m_search->setClearButtonEnabled(true);
+    top->addWidget(m_search, 1);
+    top->addWidget(new QLabel(tr("Overlay pack:")));
+    m_pack = new QComboBox;
+    for (const auto &p : WidgetManager::instance().packs()) m_pack->addItem(p.glyph + " " + p.name, p.id);
+    top->addWidget(m_pack);
+    m_count = new QLabel; m_count->setObjectName("Muted");
+    top->addWidget(m_count);
+    gl->addLayout(top);
+    auto *split = new QHBoxLayout;
+    m_categories = new QListWidget;
+    m_categories->setFixedWidth(200);
+    m_categories->addItem(tr("All widgets (%1)").arg(widgetCatalog().size()));
+    m_categories->item(0)->setData(Qt::UserRole, QString());
+    for (const QString &cat : widgetCategories()) {
+        int n = 0; for (const auto &e : widgetCatalog()) n += e.category == cat;
+        auto *it = new QListWidgetItem(QStringLiteral("%1 (%2)").arg(cat).arg(n)); it->setData(Qt::UserRole, cat);
+        m_categories->addItem(it);
     }
+    m_categories->setCurrentRow(0);
+    split->addWidget(m_categories);
+    auto *scroll = new QScrollArea; scroll->setWidgetResizable(true); scroll->setFrameShape(QFrame::NoFrame);
+    scroll->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
+    auto *host = new QWidget; m_grid = new QGridLayout(host); m_grid->setSpacing(12); m_grid->setAlignment(Qt::AlignTop | Qt::AlignLeft);
+    scroll->setWidget(host);
+    scroll->viewport()->installEventFilter(this);   // re-flow the cards when the window is resized
+    m_galleryScroll = scroll;
+    split->addWidget(scroll, 1);
+    gl->addLayout(split, 1);
+    tabs->addTab(gallery, tr("Widget gallery"));
+    connect(m_pack, &QComboBox::currentIndexChanged, this, [this] { rebuildGallery(); rebuildPacks(); });
+    connect(m_categories, &QListWidget::currentRowChanged, this, &WidgetsPage::rebuildGallery);
+    connect(m_search, &QLineEdit::textChanged, this, &WidgetsPage::rebuildGallery);
+
+    // ---- alert rules
+    auto *alerts = new QWidget;
+    auto *al = new QGridLayout(alerts);
+    al->addWidget(new QLabel(tr("<b>Event</b>")), 0, 0); al->addWidget(new QLabel(tr("<b>On</b>")), 0, 1);
+    al->addWidget(new QLabel(tr("<b>Min amount</b>")), 0, 2); al->addWidget(new QLabel(tr("<b>Message ({user} {amount} {message})</b>")), 0, 3);
+    int r = 1;
+    for (const QString &t : WidgetManager::alertTypes()) {
+        const AlertRule rule = WidgetManager::instance().rule(t);
+        auto *on = new QCheckBox; on->setChecked(rule.enabled);
+        auto *min = new QSpinBox; min->setRange(0, 1000000); min->setValue(int(rule.minAmount));
+        auto *tpl = new QLineEdit(rule.templ);
+        auto *test = new QPushButton(tr("Test"));
+        auto save = [t, on, min, tpl] { WidgetManager::instance().setRule(t, AlertRule{on->isChecked(), double(min->value()), tpl->text()}); };
+        connect(on, &QCheckBox::toggled, this, save);
+        connect(min, &QSpinBox::valueChanged, this, save);
+        connect(tpl, &QLineEdit::editingFinished, this, save);
+        connect(test, &QPushButton::clicked, this, [t] { PlatformHub::instance().emitTestEvent(t); });
+        al->addWidget(new QLabel(t), r, 0); al->addWidget(on, r, 1); al->addWidget(min, r, 2); al->addWidget(tpl, r, 3); al->addWidget(test, r, 4);
+        ++r;
+    }
+    auto *restart = new QPushButton(tr("Restart countdowns && timers"));
+    connect(restart, &QPushButton::clicked, this, [] { WidgetManager::instance().restartTimers(); });
+    al->addWidget(restart, r, 0, 1, 2);
+    auto *note = new QLabel(tr("Alert sound, duration, size and look are set per Alert box widget (double-click it in Sources). "
+                               "Animation, font and colours come from the overlay pack. Test alerts never count toward goals, "
+                               "leaderboards or subathon time."));
+    note->setWordWrap(true); note->setObjectName("Muted");
+    al->addWidget(note, r + 1, 0, 1, 5);
+    al->setRowStretch(r + 2, 1);
+    tabs->addTab(alerts, tr("Alert rules && tests"));
+
+    // ---- overlay packs
+    auto *packsTab = new QScrollArea; packsTab->setWidgetResizable(true); packsTab->setFrameShape(QFrame::NoFrame);
+    auto *packHost = new QWidget; m_packGrid = new QGridLayout(packHost); m_packGrid->setSpacing(12); m_packGrid->setAlignment(Qt::AlignTop);
+    packsTab->setWidget(packHost);
+    tabs->addTab(packsTab, tr("Overlay packs"));
+
     rebuildGallery();
+    rebuildPacks();
 }
+
+void WidgetsPage::showCategory(const QString &category) {
+    for (int i = 0; i < m_categories->count(); ++i)
+        if (m_categories->item(i)->data(Qt::UserRole).toString() == category) m_categories->setCurrentRow(i);
+}
+
+static constexpr int kCardWidth = 270, kPreviewW = 246, kPreviewH = 118;
 
 void WidgetsPage::rebuildGallery() {
     while (QLayoutItem *it = m_grid->takeAt(0)) { delete it->widget(); delete it; }
+    m_cards.clear();
+    m_columns = 0;
     const QString pack = m_pack->currentData().toString();
-    if (m_overlays) {
-        int i = 0;
-        for (const auto &p : WidgetManager::instance().packs()) {
-            auto *card = new QFrame; card->setObjectName("GlassPanel");
-            auto *v = new QVBoxLayout(card);
-            WidgetConfig c; c.kind = "text_panel"; c.pack = p.id; c.title = p.emoji + " " + p.name; c.fontSize = 34;
-            auto *img = new QLabel; img->setPixmap(QPixmap::fromImage(WidgetManager::instance().renderPreview(c, {360, 120})));
-            v->addWidget(img);
-            auto *apply = new QPushButton(tr("Create \"%1\" scene").arg(p.name));
-            connect(apply, &QPushButton::clicked, this, [this, p] {
-                auto &e = Engine::instance();
-                const QString scene = e.createScene(tr("%1 ♡").arg(p.name));
-                OBSDataAutoRelease g = obs_data_create();
-                obs_data_set_string(g, "bc_c1", p.bg1.name().toUtf8().constData());
-                obs_data_set_string(g, "bc_c2", p.bg2.name().toUtf8().constData());
-                e.addSource(scene, "bc_gradient", tr("%1 background").arg(p.name), g);
-                e.setPreviewScene(scene);
-                for (const QString k : {"text_panel", "label", "goal", "chat", "alerts"}) m_sources->addWidgetOfKind(k, p.id);
-                Q_EMIT PlatformHub::instance().notice(tr("Created scene \"%1\" with the %2 pack ♡").arg(scene, p.name), false);
-            });
-            v->addWidget(apply);
-            m_grid->addWidget(card, i / 3, i % 3); ++i;
-        }
-        return;
-    }
-    const QList<QPair<QString, QString>> kinds = {{"alerts", tr("Alert box")}, {"chat", tr("Chat box")}, {"events", tr("Event list")},
-        {"label", tr("Stream label")}, {"goal", tr("Goal bar")}, {"countdown", tr("Countdown")}, {"stopwatch", tr("Stopwatch")},
-        {"social", tr("Social panel")}, {"sponsor", tr("Sponsor panel")}, {"viewers", tr("Viewer count")}, {"text_panel", tr("Text panel")}};
+    const QString cat = m_categories->currentItem() ? m_categories->currentItem()->data(Qt::UserRole).toString() : QString();
+    const QString q = m_search->text().trimmed();
     int i = 0;
-    for (const auto &k : kinds) {
+    for (const auto &e : widgetCatalog()) {
+        if (!cat.isEmpty() && e.category != cat) continue;
+        if (!q.isEmpty() && !e.name.contains(q, Qt::CaseInsensitive) && !e.description.contains(q, Qt::CaseInsensitive) && !e.category.contains(q, Qt::CaseInsensitive)) continue;
+        auto *card = new QFrame; card->setObjectName("GlassPanel");
+        card->setFixedWidth(kCardWidth);
+        auto *v = new QVBoxLayout(card);
+        auto *name = new QLabel("<b>" + e.name.toHtmlEscaped() + "</b>");
+        v->addWidget(name);
+        // preview at the widget's own aspect, fitted into the card. Very wide strips (tickers,
+        // banners) show their left part at a readable size instead of a hairline.
+        WidgetConfig c = widgetConfigFromJson(e.defaults);
+        c.pack = pack;
+        QSize full = e.size;
+        if (full.width() > full.height() * 5) full.setWidth(full.height() * 5);
+        const double scale = qMin(double(kPreviewW) / full.width(), double(kPreviewH) / full.height());
+        // render at a readable size, then scale down for the card
+        const double up = qMax(1.0, 1.0 / qMax(0.35, scale * 1.6));
+        const QSize renderSize(int(full.width() * scale * up), int(full.height() * scale * up));
+        QImage img = WidgetManager::instance().renderPreview(c, renderSize);
+        auto *pic = new QLabel;
+        pic->setFixedHeight(kPreviewH + 4);
+        pic->setAlignment(Qt::AlignCenter);
+        // ambience is drawn over your content (dark bats, feathers), so preview it over a moonlit sky
+        pic->setStyleSheet(e.kind == "ambient"
+            ? "background:qlineargradient(x1:0,y1:0,x2:0,y2:1,stop:0 #4A3F58,stop:0.7 #2A2131,stop:1 #17121B);border:1px solid #2E2733;border-radius:2px;"
+            : "background:#0E0B11;border:1px solid #2E2733;border-radius:2px;");
+        pic->setPixmap(QPixmap::fromImage(img.scaled(QSize(kPreviewW, kPreviewH), Qt::KeepAspectRatio, Qt::SmoothTransformation)));
+        v->addWidget(pic);
+        auto *desc = new QLabel(e.description); desc->setWordWrap(true); desc->setObjectName("Muted");
+        desc->setMinimumHeight(36);
+        v->addWidget(desc);
+        auto *add = new QPushButton(tr("Add to scene"));
+        add->setProperty("accent", "secondary");
+        connect(add, &QPushButton::clicked, this, [this, id = e.id, pack] {
+            m_sources->addWidgetOfKind(id, pack);
+            Q_EMIT PlatformHub::instance().notice(tr("Added \"%1\" — double-click it in Sources to customise").arg(widgetCatalogEntry(id)->name), false);
+        });
+        v->addWidget(add);
+        m_cards << card;
+        ++i;
+    }
+    m_count->setText(tr("%n widget(s)", nullptr, i));
+    layoutCards();
+}
+
+void WidgetsPage::layoutCards() {
+    const int avail = m_galleryScroll ? m_galleryScroll->viewport()->width() - 4 : 900;
+    const int cols = qMax(1, (avail + m_grid->spacing()) / (kCardWidth + m_grid->spacing()));
+    if (cols == m_columns) return;
+    m_columns = cols;
+    while (QLayoutItem *it = m_grid->takeAt(0)) delete it;   // deletes the layout slot only; the card widget stays
+    for (int i = 0; i < m_cards.size(); ++i) m_grid->addWidget(m_cards.at(i), i / cols, i % cols);
+}
+
+bool WidgetsPage::eventFilter(QObject *o, QEvent *e) {
+    if (m_galleryScroll && o == m_galleryScroll->viewport() && e->type() == QEvent::Resize) layoutCards();
+    return QWidget::eventFilter(o, e);
+}
+
+void WidgetsPage::rebuildPacks() {
+    while (QLayoutItem *it = m_packGrid->takeAt(0)) { delete it->widget(); delete it; }
+    int i = 0;
+    for (const auto &p : WidgetManager::instance().packs()) {
         auto *card = new QFrame; card->setObjectName("GlassPanel");
         auto *v = new QVBoxLayout(card);
-        WidgetConfig c; c.kind = k.first; c.pack = pack; c.fontSize = 22; c.goalTarget = 50; c.countdownMinutes = 5;
-        c.socials = "twitch:yourname;tiktok:yourname"; c.alertSeconds = 6;
-        auto *img = new QLabel; img->setPixmap(QPixmap::fromImage(WidgetManager::instance().renderPreview(c, {300, 110})));
-        v->addWidget(new QLabel("<b>" + k.second + "</b>"));
+        WidgetConfig c; c.kind = "text_panel"; c.pack = p.id; c.title = p.name; c.fontSize = 34;
+        auto *img = new QLabel; img->setPixmap(QPixmap::fromImage(WidgetManager::instance().renderPreview(c, {360, 120})));
         v->addWidget(img);
-        auto *add = new QPushButton(tr("Add to scene ＋"));
-        connect(add, &QPushButton::clicked, this, [this, k, pack] { m_sources->addWidgetOfKind(k.first, pack); });
-        v->addWidget(add);
-        m_grid->addWidget(card, i / 4, i % 4); ++i;
+        auto *apply = new QPushButton(tr("Create \"%1\" scene").arg(p.name));
+        connect(apply, &QPushButton::clicked, this, [this, p] {
+            auto &e = Engine::instance();
+            const QString scene = e.createScene(tr("%1 Scene").arg(p.name));
+            OBSDataAutoRelease g = obs_data_create();
+            obs_data_set_string(g, "bc_c1", p.bg1.name().toUtf8().constData());
+            obs_data_set_string(g, "bc_c2", p.bg2.name().toUtf8().constData());
+            e.addSource(scene, "bc_gradient", tr("%1 background").arg(p.name), g);
+            e.setPreviewScene(scene);
+            for (const QString id : {"text_panel", "label.latest_follower", "goal.followers", "chat", "alerts"}) m_sources->addWidgetOfKind(id, p.id);
+            Q_EMIT PlatformHub::instance().notice(tr("Created scene \"%1\" with the %2 pack").arg(scene, p.name), false);
+        });
+        v->addWidget(apply);
+        m_packGrid->addWidget(card, i / 3, i % 3); ++i;
     }
 }
 
@@ -935,7 +978,7 @@ EffectsPage::EffectsPage(QWidget *parent) : QWidget(parent) {
     auto *al = new QVBoxLayout(ai);
     m_aiStatus = new QLabel; m_aiStatus->setWordWrap(true);
     al->addWidget(m_aiStatus);
-    auto *aiBtn = accentButton(tr("Add background removal to selected source"), "mint");
+    auto *aiBtn = accentButton(tr("Add background removal to selected source"), "secondary");
     al->addWidget(aiBtn);
     lay->addWidget(ai);
     lay->addStretch();
@@ -948,7 +991,7 @@ EffectsPage::EffectsPage(QWidget *parent) : QWidget(parent) {
     const QString aid = aiFilter();
     m_aiStatus->setText(aid.isEmpty()
         ? tr("Not available yet: install either the <b>NVIDIA Broadcast / Video Effects SDK</b> runtime (RTX GPUs, GPU-accelerated) "
-             "or the open-source <b>obs-backgroundremoval</b> plugin (ONNX, GPU with CPU fallback) into HeartCast's plugin folder, then restart.")
+             "or the open-source <b>obs-backgroundremoval</b> plugin (ONNX, GPU with CPU fallback) into KovaLive's plugin folder, then restart.")
         : tr("✓ Available via <b>%1</b>.").arg(aid));
     aiBtn->setEnabled(!aid.isEmpty());
     connect(aiBtn, &QPushButton::clicked, this, [this, aid] {
@@ -984,17 +1027,18 @@ TransitionsPage::TransitionsPage(QWidget *parent) : QWidget(parent) {
     auto *split = new QSplitter;
     auto *left = new QWidget; auto *ll = new QVBoxLayout(left);
     m_list = new QListWidget;
-    const QList<QPair<QString, QString>> builtins = {
-        {"bc_luma_heart", tr("♡ Heart Iris (kawaii)")}, {"bc_luma_star", tr("★ Star Burst (kawaii)")},
-        {"bc_luma_ribbon", tr("🎀 Ribbon Sweep (kawaii)")}, {"bc_luma_sparkle", tr("✦ Sparkle Dissolve (kawaii)")},
-        {"cut_transition", tr("Cut")}, {"fade_transition", tr("Fade")}, {"fade_to_color_transition", tr("Fade to colour")},
-        {"swipe_transition", tr("Swipe")}, {"slide_transition", tr("Slide")}, {"wipe_transition", tr("Luma wipe")},
-        {"obs_stinger_transition", tr("Stinger (video)")}};
-    const QStringList avail = Engine::instance().transitionTypes();
-    for (const auto &b : builtins) {
-        if (!b.first.startsWith("bc_") && !avail.contains(b.first)) continue;
-        if (b.first.startsWith("bc_") && !avail.contains("wipe_transition")) continue;
-        auto *it = new QListWidgetItem(b.second); it->setData(Qt::UserRole, b.first); m_list->addItem(it);
+    QString group;
+    for (const auto &pr : Engine::instance().transitionPresets()) {
+        if (pr.group != group) {   // section header
+            group = pr.group;
+            auto *h = new QListWidgetItem(group.toUpper());
+            h->setFlags(Qt::NoItemFlags);
+            QFont f(theme::displayFamily()); f.setPointSize(8); f.setBold(true); f.setLetterSpacing(QFont::AbsoluteSpacing, 1.5);
+            h->setFont(f); h->setForeground(theme::OldGold);
+            m_list->addItem(h);
+        }
+        auto *it = new QListWidgetItem(pr.name); it->setData(Qt::UserRole, pr.id); m_list->addItem(it);
+        if (pr.id == Engine::instance().transitionId()) m_list->setCurrentItem(it);
     }
     ll->addWidget(m_list, 1);
     auto *dRow = new QHBoxLayout;
@@ -1002,7 +1046,7 @@ TransitionsPage::TransitionsPage(QWidget *parent) : QWidget(parent) {
     m_duration = new QSpinBox; m_duration->setRange(50, 20000); m_duration->setSuffix(" ms"); m_duration->setValue(Engine::instance().transitionDurationMs());
     dRow->addWidget(m_duration);
     ll->addLayout(dRow);
-    auto *test = accentButton(tr("Preview transition ✦"), "mint");
+    auto *test = accentButton(tr("Preview transition"), "secondary");
     ll->addWidget(test);
     split->addWidget(left);
     m_propsHost = new QWidget; new QVBoxLayout(m_propsHost);
@@ -1010,6 +1054,7 @@ TransitionsPage::TransitionsPage(QWidget *parent) : QWidget(parent) {
     split->setStretchFactor(1, 2);
     lay->addWidget(split, 1);
     connect(m_list, &QListWidget::itemClicked, this, [this](QListWidgetItem *it) {
+        if (it->data(Qt::UserRole).toString().isEmpty()) return;
         Engine::instance().setTransition(it->data(Qt::UserRole).toString());
         showCurrent();
     });
@@ -1021,7 +1066,8 @@ TransitionsPage::TransitionsPage(QWidget *parent) : QWidget(parent) {
         const QString cur = e.programScene();
         const QString other = order.at((order.indexOf(cur) + 1) % order.size());
         e.transitionTo(other);
-        QTimer::singleShot(e.transitionDurationMs() + 900, [cur] { Engine::instance().transitionTo(cur); });
+        // stingers run as long as their video (~1.5 s) regardless of the duration setting
+        QTimer::singleShot(qMax(e.transitionDurationMs(), 1600) + 900, [cur] { Engine::instance().transitionTo(cur); });
     });
     showCurrent();
 }
@@ -1044,7 +1090,7 @@ ChatPage::ChatPage(bool compact, QWidget *parent) : QWidget(parent) {
     m_fontSize = new QSpinBox; m_fontSize->setRange(8, 28); m_fontSize->setValue(Settings::instance().get("chat.fontPt", 11).toInt()); m_fontSize->setPrefix(tr("Text "));
     auto *mod = new QPushButton(tr("Moderation ▾"));
     auto *words = new QPushButton(tr("Blocked words…"));
-    auto *connectBtn = accentButton(tr("Connect chat"), "mint");
+    auto *connectBtn = accentButton(tr("Connect chat"), "secondary");
     if (compact) {   // narrow toolbar so the chat panel can dock in tight spots
         m_fontSize->hide();
         m_filterPlatform->setItemText(0, tr("All"));
@@ -1066,8 +1112,8 @@ ChatPage::ChatPage(bool compact, QWidget *parent) : QWidget(parent) {
     lay->addWidget(m_list, 1);
     auto *send = new QHBoxLayout;
     m_target = new QComboBox; m_target->addItem(tr("All connected"), "all"); m_target->addItem("Twitch", "twitch"); m_target->addItem("YouTube", "youtube");
-    m_input = new QLineEdit; m_input->setPlaceholderText(tr("Say something cute…"));
-    auto *sendBtn = accentButton(tr("Send ♡"));
+    m_input = new QLineEdit; m_input->setPlaceholderText(tr("Send a message…"));
+    auto *sendBtn = accentButton(tr("Send"));
     send->addWidget(m_target); send->addWidget(m_input, 1); send->addWidget(sendBtn);
     lay->addLayout(send);
 
@@ -1120,10 +1166,10 @@ void ChatPage::append(const ChatMessage &m) {
     if (m.hidden && !m_showHidden->isChecked()) return;
     const QString pf = m_filterPlatform->currentData().toString();
     if (pf != "all" && pf != m.platform) return;
-    const QString badges = m.badges.contains("broadcaster") ? "👑 " : m.badges.contains("moderator") ? "🛡 " : m.badges.contains("subscriber") || m.badges.contains("member") ? "♡ " : "";
+    const QString badges = m.badges.contains("broadcaster") ? "👑 " : m.badges.contains("moderator") ? "🛡 " : m.badges.contains("subscriber") || m.badges.contains("member") ? "✧ " : "";
     auto *it = new QListWidgetItem(QStringLiteral("[%1] %2%3: %4%5").arg(m.ts.toString("HH:mm"), badges, m.user, m.text,
                                    m.hidden ? tr("   (filtered: %1)").arg(m.hiddenReason) : QString()));
-    it->setForeground(m.hidden ? QColor(170, 160, 170) : theme::Charcoal);
+    it->setForeground(m.hidden ? theme::Smoke : theme::Bone);
     it->setData(Qt::UserRole, QVariant::fromValue(m.userId));
     it->setData(Qt::UserRole + 1, m.platform);
     it->setData(Qt::UserRole + 2, m.id);
@@ -1169,8 +1215,8 @@ ActivityPage::ActivityPage(bool compact, QWidget *parent) : QWidget(parent) {
     m_list = new QListWidget;
     lay->addWidget(m_list, 1);
     auto add = [this](const StreamEvent &e) {
-        static const QHash<QString, QString> icons = {{"follow", "♡"}, {"subscribe", "★"}, {"gift", "🎁"}, {"raid", "🎉"},
-            {"cheer", "✦"}, {"donation", "💗"}, {"membership", "★"}, {"redemption", "🎀"}};
+        static const QHash<QString, QString> icons = {{"follow", "☾"}, {"subscribe", "⚜"}, {"gift", "✠"}, {"raid", "⚔"},
+            {"cheer", "✧"}, {"donation", "❦"}, {"membership", "⚜"}, {"redemption", "✦"}};
         auto *it = new QListWidgetItem(QStringLiteral("%1  %2  %3 — %4%5%6").arg(e.ts.toString("HH:mm:ss"), icons.value(e.type, "•"), e.user, e.type,
             e.amount > 0 ? QStringLiteral(" ×%1").arg(e.amount) : QString(), e.message.isEmpty() ? QString() : " · " + e.message)
             + (e.test ? tr("  (test)") : QString()));
@@ -1206,7 +1252,7 @@ AnalyticsPage::AnalyticsPage(QWidget *parent) : QWidget(parent) {
     lay->addLayout(grid);
     m_chart = new SparkChart;
     lay->addWidget(m_chart);
-    auto *note = new QLabel(tr("These numbers are measured locally by HeartCast during this session. Platform-side analytics "
+    auto *note = new QLabel(tr("These numbers are measured locally by KovaLive during this session. Platform-side analytics "
                                "(watch time, demographics) live in Twitch Creator Dashboard / YouTube Studio."));
     note->setWordWrap(true); note->setObjectName("Muted");
     lay->addWidget(note);
@@ -1240,8 +1286,8 @@ PluginsPage::PluginsPage(QWidget *parent) : QWidget(parent) {
     auto *rescan = new QPushButton(tr("Rescan"));
     top->addWidget(open); top->addWidget(rescan);
     lay->addLayout(top);
-    auto *warn = new QLabel(tr("Plugins are native code that runs inside HeartCast. Only enable plugins from people you trust. "
-                               "Permissions limit what a plugin can ask HeartCast to do, but they are not a security sandbox."));
+    auto *warn = new QLabel(tr("Plugins are native code that runs inside KovaLive. Only enable plugins from people you trust. "
+                               "Permissions limit what a plugin can ask KovaLive to do, but they are not a security sandbox."));
     warn->setWordWrap(true); warn->setProperty("pill", "warn");
     lay->addWidget(warn);
     m_table = new QTableWidget(0, 7);

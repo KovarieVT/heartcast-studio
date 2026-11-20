@@ -108,8 +108,14 @@ public:
 
     // ---- transitions ----
     obs_source_t *transition() const { return m_transition; }
-    QString transitionId() const;
-    void    setTransition(const QString &typeId, obs_data_t *settings = nullptr);
+    // Transition presets: plain OBS ids ("fade_transition"), "kova_shape:<shape>"
+    // (built-in shape wipes) or "kova_stinger:<name>" (bundled stinger videos).
+    struct TransitionPreset { QString id, name, group; };
+    QVector<TransitionPreset> transitionPresets() const;
+    QString transitionId() const;   // the preset id last passed to setTransition()
+    bool    setTransition(const QString &presetId, obs_data_t *settings = nullptr);
+    static QString stingerFile(const QString &name);   // absolute path of a bundled stinger
+    static QStringList stingerIds();                    // every bundled stinger (from stingers.json)
     int     transitionDurationMs() const { return m_transitionMs; }
     void    setTransitionDurationMs(int ms) { m_transitionMs = ms; }
 
@@ -160,7 +166,6 @@ public:
 
     // Generates a gradient PNG into the cache (backs the "Gradient" source type).
     static QString makeGradientImage(const QString &c1, const QString &c2, int w, int h, int angleDeg = 135);
-    static QString kawaiiLumaDir();
 
 Q_SIGNALS:
     void scenesChanged();
@@ -184,7 +189,6 @@ private:
     void onOutputSignal(const QString &tag, const QString &what, int code);
     void releaseStreamEncodersIfIdle();
     void createGlobalAudio();
-    void generateKawaiiLumas();
     void clearAll();
     QString uniqueSceneName(const QString &base) const;
 
@@ -211,6 +215,7 @@ private:
     QString m_programScene, m_previewScene, m_collectionPath, m_lastRecording;
 
     OBSSourceAutoRelease  m_transition;
+    QString               m_transitionPreset;
     OBSSourceAutoRelease  m_desktopAudio, m_micAudio;
     OBSEncoderAutoRelease m_streamVideoEnc, m_streamAudioEnc;
     OBSEncoderAutoRelease m_recVideoEnc, m_recAudioEnc;

@@ -1,7 +1,11 @@
 #include "engine/Engine.h"
+#include "overlays/WidgetCatalog.h"
+#include <QSet>
+#include <functional>
 #include "auth/SecureStore.h"
 #include "core/Paths.h"
 #include "core/Settings.h"
+#include "engine/ShapeTransition.h"
 #include "engine/WidgetSource.h"
 
 #include <QCoreApplication>
@@ -139,7 +143,7 @@ bool Engine::startup(const std::function<void(int, const QString &)> &progress) 
         return false;
     }
 
-    report(35, tr("Sprinkling some magic (loading plugins)…"));
+    report(35, tr("Waking the plugins…"));
     // Installed layout mirrors OBS so libobs' default search paths also work:
     //   bin/64bit/<exe>, obs-plugins/64bit/*.dll, data/obs-plugins/<module>/
     const QString appDir = QCoreApplication::applicationDirPath();
@@ -163,7 +167,7 @@ bool Engine::startup(const std::function<void(int, const QString &)> &progress) 
     // modules must be enabled explicitly by the user in the Plugins page.
     static const char *kEngineModules[] = {
         "image-source", "obs-ffmpeg", "obs-filters", "obs-outputs", "obs-transitions", "obs-x264",
-        "rtmp-services", "text-freetype2", "obs-text", "obs-vst", "obs-webrtc", "obs-nvenc", "nv-filters",
+        "rtmp-services", "text-freetype2", "obs-text", "obs-vst", "obs-vst3", "obs-webrtc", "obs-nvenc", "nv-filters",
         "obs-qsv11", "win-capture", "win-dshow", "win-wasapi", "coreaudio-encoder", "decklink", "aja",
         "linux-capture", "linux-pulseaudio", "linux-alsa", "linux-v4l2", "linux-pipewire", "linux-jack",
         "vlc-video", "mac-capture", "mac-avcapture", "mac-videotoolbox", "mac-virtualcam", "obs-libfdk"};
@@ -178,11 +182,11 @@ bool Engine::startup(const std::function<void(int, const QString &)> &progress) 
     obs_log_loaded_modules();
     obs_post_load_modules();
 
-    report(60, tr("Registering cute widgets…"));
+    report(60, tr("Registering widgets…"));
     registerWidgetSource();
 
-    report(68, tr("Polishing transitions…"));
-    generateKawaiiLumas();
+    report(68, tr("Carving transitions…"));
+    registerShapeTransition();
     setTransition("fade_transition");
 
     report(75, tr("Finding your microphone…"));
@@ -197,7 +201,7 @@ bool Engine::startup(const std::function<void(int, const QString &)> &progress) 
         m_collectionPath = Paths::sceneCollections() + "/default.json";
         saveCollection(m_collectionPath);
     }
-    report(100, tr("Almost ready, cutie!"));
+    report(100, tr("The stage is set."));
     return true;
 }
 
@@ -219,6 +223,7 @@ void Engine::shutdown() {
     m_desktopAudio = nullptr; m_micAudio = nullptr; m_transition = nullptr;
     clearAll();
     unregisterWidgetSources();
+    unregisterShapeTransition();
     m_running = false;
     obs_shutdown();
     qInfo("Engine shut down. Leaked refs: %ld", bnum_allocs());
@@ -254,7 +259,7 @@ bool Engine::resetVideo(QString *error) {
         case OBS_VIDEO_CURRENTLY_ACTIVE: *error = tr("Stop streaming/recording before changing video settings."); break;
         case OBS_VIDEO_NOT_SUPPORTED: *error = tr("Your GPU or driver does not support the required graphics features. Update your graphics driver."); break;
         case OBS_VIDEO_INVALID_PARAM: *error = tr("Invalid video settings (resolution or FPS)."); break;
-        case OBS_VIDEO_MODULE_NOT_FOUND: *error = tr("Graphics module missing — reinstall HeartCast."); break;
+        case OBS_VIDEO_MODULE_NOT_FOUND: *error = tr("Graphics module missing — reinstall KovaLive."); break;
         default: *error = tr("Video initialisation failed (code %1).").arg(r);
         }
     }
@@ -318,7 +323,7 @@ QVector<SourceTypeInfo> Engine::sourceTypes() const {
         out << t;
     }
     // App-provided native types
-    out << SourceTypeInfo{"bc_gradient", tr("Gradient ♡"), "creative", true, false};
+    out << SourceTypeInfo{"bc_gradient", tr("Gradient"), "creative", true, false};
     std::sort(out.begin(), out.end(), [](auto &a, auto &b) { return a.name.localeAwareCompare(b.name) < 0; });
     return out;
 }
@@ -512,8 +517,8 @@ obs_sceneitem_t *Engine::addSource(const QString &sceneName, const QString &type
     OBSDataAutoRelease st = settings ? obs_data_create_from_json(obs_data_get_json(settings)) : obs_data_create();
 
     if (typeId == "bc_gradient") {
-        const QString c1 = obs_data_has_user_value(st, "bc_c1") ? obs_data_get_string(st, "bc_c1") : "#FFDCEB";
-        const QString c2 = obs_data_has_user_value(st, "bc_c2") ? obs_data_get_string(st, "bc_c2") : "#D2F3E7";
+        const QString c1 = obs_data_has_user_value(st, "bc_c1") ? obs_data_get_string(st, "bc_c1") : "#1D1922";
+        const QString c2 = obs_data_has_user_value(st, "bc_c2") ? obs_data_get_string(st, "bc_c2") : "#0B0A0D";
         obs_data_set_string(st, "bc_c1", c1.toUtf8().constData());
         obs_data_set_string(st, "bc_c2", c2.toUtf8().constData());
         const auto &s = Settings::instance();
@@ -560,89 +565,107 @@ void Engine::fitItemToCanvas(obs_sceneitem_t *item, double scale, const QString 
 }
 
 // ===================================================================
-//  transitions (+ procedurally generated kawaii luma wipes)
+//  transitions: OBS built-ins, in-memory shape wipes, bundled stingers
 // ===================================================================
-QString Engine::kawaiiLumaDir() {
-    obs_module_t *mod = obs_get_module("obs-transitions");
-    if (mod) {
-        char *p = obs_find_module_file(mod, "luma_wipes");
-        if (p) { QString d = QString::fromUtf8(p); bfree(p); return d; }
+namespace {
+// Bundled stingers: <data>/stingers/stingers.json, written by tools/art/render_art, which
+// also verified that each video fully covers the screen at its cut point.
+struct StingerInfo { QString id, title, group, file; int pointMs = 700; };
+const QVector<StingerInfo> &stingerCatalog() {
+    static QVector<StingerInfo> list;
+    static bool loaded = false;
+    if (loaded) return list;
+    loaded = true;
+    QFile f(Paths::appDataDir() + "/stingers/stingers.json");
+    if (!f.open(QIODevice::ReadOnly)) return list;
+    for (const auto v : QJsonDocument::fromJson(f.readAll()).object().value("stingers").toArray()) {
+        const QJsonObject o = v.toObject();
+        list << StingerInfo{o.value("id").toString(), o.value("title").toString(), o.value("group").toString(),
+                            o.value("file").toString(), o.value("pointMs").toInt(700)};
     }
+    return list;
+}
+// Transitions from HeartCast versions map to their closest gothic counterpart.
+QString migratePreset(const QString &id) {
+    if (id == "bc_luma_heart") return "kova_shape:cathedral";
+    if (id == "bc_luma_star") return "kova_shape:moonrise";
+    if (id == "bc_luma_ribbon") return "kova_shape:wingsweep";
+    if (id == "bc_luma_sparkle") return "kova_shape:stainedglass";
+    return id;
+}
+} // namespace
+
+QString Engine::stingerFile(const QString &name) {
+    for (const auto &st : stingerCatalog())
+        if (st.id == name) return Paths::appDataDir() + "/stingers/" + st.file;
     return {};
 }
 
-static QImage makeLuma(const QString &kind, int w, int h) {
-    QImage img(w, h, QImage::Format_Grayscale8);
-    const double aspect = double(w) / h;
-    auto heartInside = [](double x, double y) {   // classic implicit heart, y up
-        const double a = x * x + y * y - 1.0;
-        return a * a * a - x * x * y * y * y <= 0.0;
+QStringList Engine::stingerIds() {
+    QStringList ids;
+    for (const auto &st : stingerCatalog()) ids << st.id;
+    return ids;
+}
+
+QVector<Engine::TransitionPreset> Engine::transitionPresets() const {
+    QVector<TransitionPreset> out;
+    const QStringList avail = transitionTypes();
+    auto add = [&](const QString &id, const QString &name, const QString &group, const char *needs) {
+        if (avail.contains(QLatin1String(needs))) out << TransitionPreset{id, name, group};
     };
-    for (int py = 0; py < h; ++py) {
-        uchar *row = img.scanLine(py);
-        for (int px = 0; px < w; ++px) {
-            const double x = (double(px) / w - 0.5) * 2.0 * aspect;
-            const double y = -((double(py) / h - 0.5) * 2.0) + 0.15;
-            double v = 0;
-            if (kind == "heart") {
-                double lo = 0.0, hi = 3.0;                 // smallest heart scale containing point
-                for (int k = 0; k < 18; ++k) {
-                    const double m = (lo + hi) / 2;
-                    (heartInside(x / m, y / m) ? hi : lo) = m;
-                }
-                v = hi / 3.0;
-            } else if (kind == "star") {
-                const double r = std::hypot(x, y), th = std::atan2(y, x);
-                v = r / (1.0 + 0.45 * std::cos(5.0 * th + M_PI / 2)) / 2.4;
-            } else if (kind == "ribbon") {               // wavy diagonal ribbons sweeping left→right
-                const double t = (x + aspect) / (2 * aspect);
-                v = 0.85 * t + 0.15 * (0.5 + 0.5 * std::sin(y * 9.0 + x * 2.0));
-            } else if (kind == "sparkle") {              // soft dither of sparkles
-                const quint32 hsh = quint32(px * 73856093u) ^ quint32(py * 19349663u);
-                v = 0.6 * ((hsh % 1000) / 1000.0) + 0.4 * (std::hypot(x, y) / 2.2);
-            }
-            row[px] = uchar(qBound(0.0, v, 1.0) * 255);
-        }
-    }
-    return img;
+    add("fade_transition", tr("Fade"), tr("Classic"), "fade_transition");
+    add("cut_transition", tr("Cut"), tr("Classic"), "cut_transition");
+    add("fade_to_color_transition", tr("Fade to colour"), tr("Classic"), "fade_to_color_transition");
+    add("swipe_transition", tr("Swipe"), tr("Classic"), "swipe_transition");
+    add("slide_transition", tr("Slide"), tr("Classic"), "slide_transition");
+    add("wipe_transition", tr("Luma wipe (image)"), tr("Classic"), "wipe_transition");
+    add("kova_shape:cathedral", tr("Cathedral Arch"), tr("Gothic wipes"), kShapeTransitionId);
+    add("kova_shape:moonrise", tr("Moonrise"), tr("Gothic wipes"), kShapeTransitionId);
+    add("kova_shape:bloodfall", tr("Bloodfall"), tr("Gothic wipes"), kShapeTransitionId);
+    add("kova_shape:stainedglass", tr("Stained Glass"), tr("Gothic wipes"), kShapeTransitionId);
+    add("kova_shape:thorns", tr("Creeping Thorns"), tr("Gothic wipes"), kShapeTransitionId);
+    add("kova_shape:wingsweep", tr("Wing Sweep"), tr("Gothic wipes"), kShapeTransitionId);
+    for (const QString &group : {QStringLiteral("Gothic"), QStringLiteral("Cute"), QStringLiteral("Bold")})
+        for (const auto &st : stingerCatalog())
+            if (st.group == group && QFile::exists(stingerFile(st.id)))
+                add(QStringLiteral("kova_stinger:") + st.id, st.title, tr("%1 stingers").arg(tr(group.toUtf8().constData())), "obs_stinger_transition");
+    add("obs_stinger_transition", tr("Your own stinger video…"), tr("Custom"), "obs_stinger_transition");
+    return out;
 }
 
-void Engine::generateKawaiiLumas() {
-    const QString sysDir = kawaiiLumaDir();
-    const QString dir = (!sysDir.isEmpty() && QFileInfo(sysDir).isWritable()) ? sysDir
-                                                                              : Paths::ensure(Paths::cache() + "/luma");
-    for (const QString kind : {"heart", "star", "ribbon", "sparkle"}) {
-        const QString path = dir + "/heartcast-" + kind + ".png";
-        if (!QFile::exists(path)) makeLuma(kind, 480, 270).scaled(1920, 1080, Qt::IgnoreAspectRatio,
-                                                                   Qt::SmoothTransformation).save(path);
-    }
-}
+QString Engine::transitionId() const { return m_transitionPreset; }
 
-QString Engine::transitionId() const {
-    return m_transition ? QString::fromUtf8(obs_source_get_id(m_transition)) : QString();
-}
-
-void Engine::setTransition(const QString &typeId, obs_data_t *settings) {
-    QString id = typeId;
+bool Engine::setTransition(const QString &presetId, obs_data_t *settings) {
+    const QString preset = migratePreset(presetId);
+    QString id = preset;
     OBSDataAutoRelease st = settings ? obs_data_create_from_json(obs_data_get_json(settings)) : obs_data_create();
-    // Kawaii luma wipes are regular luma-wipe transitions pointed at our generated images.
-    if (typeId.startsWith("bc_luma_")) {
-        const QString kind = typeId.mid(8);
-        QString file = "heartcast-" + kind + ".png";
-        const QString sys = kawaiiLumaDir();
-        if (sys.isEmpty() || !QFile::exists(sys + "/" + file))   // stored in cache → relative from luma dir
-            file = QDir(sys.isEmpty() ? Paths::cache() : sys).relativeFilePath(Paths::cache() + "/luma/" + file);
-        obs_data_set_string(st, "luma_image", file.toUtf8().constData());
-        obs_data_set_double(st, "luma_softness", 0.12);
-        id = "wipe_transition";
+    if (preset.startsWith("kova_shape:")) {
+        id = kShapeTransitionId;
+        obs_data_set_string(st, "shape", preset.mid(11).toUtf8().constData());
+    } else if (preset.startsWith("kova_stinger:")) {
+        const QString file = stingerFile(preset.mid(13));
+        if (file.isEmpty() || !QFile::exists(file)) {
+            Q_EMIT engineError(tr("The stinger video is missing (%1). Reinstall KovaLive! to restore it.").arg(QDir::toNativeSeparators(file)));
+            return false;
+        }
+        id = "obs_stinger_transition";
+        int point = 700;
+        for (const auto &d : stingerCatalog()) if (preset.mid(13) == d.id) point = d.pointMs;
+        obs_data_set_string(st, "path", file.toUtf8().constData());
+        obs_data_set_int(st, "tp_type", 0);              // transition point in milliseconds
+        obs_data_set_int(st, "transition_point", point);
+        obs_data_set_bool(st, "hw_decode", false);       // tiny files; software decode keeps alpha everywhere
+        obs_data_set_bool(st, "preload", true);
     }
-    obs_source_t *trs = obs_source_create_private(id.toUtf8().constData(), "HeartCast Transition", st);
-    if (!trs) { Q_EMIT engineError(tr("Transition type unavailable: %1").arg(typeId)); return; }
+    obs_source_t *trs = obs_source_create_private(id.toUtf8().constData(), "KovaLive Transition", st);
+    if (!trs) { Q_EMIT engineError(tr("Transition type unavailable: %1").arg(presetId)); return false; }
     obs_source_t *current = nullptr;
     if (m_transition) current = obs_transition_get_active_source(m_transition);
     if (current) { obs_transition_set(trs, current); obs_source_release(current); }
     m_transition = trs;   // takes ownership of the creation reference
+    m_transitionPreset = preset;
     obs_set_output_source(0, m_transition);
+    return true;
 }
 
 // ===================================================================
@@ -952,7 +975,7 @@ bool Engine::startRecording(QString *error) {
     if (!QStringList{"mkv", "mp4", "mov", "flv", "ts"}.contains(fmt)) fmt = "mkv";
     m_lastRecording = dir + "/" + QDateTime::currentDateTime().toString("yyyy-MM-dd HH-mm-ss") + "." + fmt;
 
-    m_record.out = obs_output_create("ffmpeg_muxer", "HeartCast Recording", nullptr, nullptr);
+    m_record.out = obs_output_create("ffmpeg_muxer", "KovaLive Recording", nullptr, nullptr);
     if (!m_record.out) { if (error) *error = tr("Recording plugin (obs-ffmpeg) missing."); return false; }
     OBSDataAutoRelease os = obs_data_create();
     obs_data_set_string(os, "path", m_lastRecording.toUtf8().constData());
@@ -1025,7 +1048,7 @@ void Engine::remuxToMp4(const QString &mkvPath) {
 bool Engine::startReplayBuffer(QString *error) {
     if (isReplayBufferActive()) return true;
     auto &s = Settings::instance();
-    m_replay.out = obs_output_create("replay_buffer", "HeartCast Replay", nullptr, nullptr);
+    m_replay.out = obs_output_create("replay_buffer", "KovaLive Replay", nullptr, nullptr);
     if (!m_replay.out) { if (error) *error = tr("Replay buffer plugin missing."); return false; }
     OBSDataAutoRelease os = obs_data_create();
     obs_data_set_string(os, "directory", Paths::ensure(s.s("recording.path")).toUtf8().constData());
@@ -1073,7 +1096,7 @@ bool Engine::startVirtualCam(QString *error) {
                                "\"Virtual Camera\" (registers the DirectShow camera device).");
         return false;
     }
-    m_vcam.out = obs_output_create("virtualcam_output", "HeartCast Virtual Camera", nullptr, nullptr);
+    m_vcam.out = obs_output_create("virtualcam_output", "KovaLive Virtual Camera", nullptr, nullptr);
     connectOutputSignals(m_vcam, "vcam");
     if (!m_vcam.out || !obs_output_start(m_vcam.out)) {
         const char *le = m_vcam.out ? obs_output_get_last_error(m_vcam.out) : nullptr;
@@ -1127,12 +1150,31 @@ void Engine::clearAll() {
 }
 
 bool Engine::saveCollection(const QString &path) const {
-    struct Ctx { const Engine *e; obs_data_array_t *arr; } ctx{this, obs_data_array_create()};
+    // Only inputs that are actually used by a scene are saved. A deleted scene's inputs are
+    // destroyed asynchronously by libobs, so without this an autosave right after deleting a
+    // scene could write them back as orphans that would then load (and run) forever.
+    QSet<obs_source_t *> used;
+    std::function<void(obs_scene_t *)> walk = [&](obs_scene_t *sc) {
+        std::vector<obs_sceneitem_t *> items;
+        obs_scene_enum_items(sc, [](obs_scene_t *, obs_sceneitem_t *it, void *p) {
+            static_cast<std::vector<obs_sceneitem_t *> *>(p)->push_back(it);
+            return true;
+        }, &items);
+        for (obs_sceneitem_t *it : items) {
+            used.insert(obs_sceneitem_get_source(it));
+            if (obs_sceneitem_is_group(it)) walk(obs_sceneitem_group_get_scene(it));
+        }
+    };
+    for (const QString &n : m_sceneOrder) if (obs_source_t *s = sceneSource(n)) walk(obs_scene_from_source(s));
+    struct Ctx { const Engine *e; obs_data_array_t *arr; const QSet<obs_source_t *> *used; } ctx{this, obs_data_array_create(), &used};
     auto saver = [](void *p, obs_source_t *src) {
         auto *c = static_cast<Ctx *>(p);
         if (src == c->e->m_desktopAudio.Get() || src == c->e->m_micAudio.Get()) return true;
         if (obs_obj_is_private(src) || obs_source_get_type(src) == OBS_SOURCE_TYPE_TRANSITION) return true;
         if (obs_source_removed(src)) return true;
+        const bool isScene = obs_scene_from_source(src) || obs_group_from_source(src);
+        if (isScene ? !c->e->m_sceneOrder.contains(QString::fromUtf8(obs_source_get_name(src))) && !c->used->contains(src)
+                    : !c->used->contains(src)) return true;
         OBSDataAutoRelease d = obs_save_source(src);
         obs_data_array_push_back(c->arr, d);
         return true;
@@ -1152,8 +1194,12 @@ bool Engine::saveCollection(const QString &path) const {
     obs_data_set_array(root, "scene_order", order);
     obs_data_set_string(root, "current_scene", m_programScene.toUtf8().constData());
     obs_data_set_string(root, "transition", transitionId().toUtf8().constData());
+    if (m_transition) {
+        OBSDataAutoRelease ts = obs_source_get_settings(m_transition);
+        obs_data_set_obj(root, "transition_settings", ts);
+    }
     obs_data_set_int(root, "transition_ms", m_transitionMs);
-    obs_data_set_string(root, "app", "HeartCast Studio");
+    obs_data_set_string(root, "app", "KovaLive!");
 
     // Write via QSaveFile (atomic) so a crash mid-save never corrupts the collection.
     QSaveFile f(path);
@@ -1190,6 +1236,13 @@ bool Engine::loadCollection(const QString &path) {
 
     m_transitionMs = int(obs_data_get_int(root, "transition_ms"));
     if (m_transitionMs <= 0) m_transitionMs = 450;
+    const QString savedTransition = QString::fromUtf8(obs_data_get_string(root, "transition"));
+    if (!savedTransition.isEmpty() && savedTransition != m_transitionPreset) {
+        // Saved tweaks (softness, glow, your own stinger file…) come back; built-in presets
+        // re-apply their own shape / bundled file on top.
+        OBSDataAutoRelease ts = obs_data_get_obj(root, "transition_settings");
+        if (!setTransition(savedTransition, ts.Get())) setTransition("fade_transition");
+    }
     const QString cur = QString::fromUtf8(obs_data_get_string(root, "current_scene"));
     m_programScene.clear();
     transitionTo(m_sceneOrder.contains(cur) ? cur : m_sceneOrder.first());
@@ -1225,11 +1278,11 @@ bool Engine::loadStarterCollection() {
 #endif
                 obs_data_set_string(st, "text", set.value("text").toString().toUtf8().constData());
                 OBSDataAutoRelease font = obs_data_create();
-                obs_data_set_string(font, "face", "Nunito");
+                obs_data_set_string(font, "face", set.value("font").toString("Palatino Linotype").toUtf8().constData());
                 obs_data_set_int(font, "size", set.value("size").toInt(72));
                 obs_data_set_int(font, "flags", 1);   // bold
                 obs_data_set_obj(st, "font", font);
-                const QColor c(set.value("color").toString("#C96F9D"));
+                const QColor c(set.value("color").toString("#E6DED2"));
                 const long long abgr = 0xFF000000LL | (c.blue() << 16) | (c.green() << 8) | c.red();
                 obs_data_set_int(st, "color", abgr);
                 obs_data_set_int(st, "color1", abgr);
@@ -1246,6 +1299,20 @@ bool Engine::loadStarterCollection() {
 #else
                 typeId = "xcomposite_input";
 #endif
+            } else if (t == "widget") {   // a catalog widget: {"catalog": id, "settings": {...}, "at": [x, y] (canvas fractions, centre)}
+                typeId = "bc_widget";
+                const WidgetCatalogEntry *e = widgetCatalogEntry(io.value("catalog").toString());
+                if (!e) continue;
+                QJsonObject d = e->defaults;
+                for (auto it = set.begin(); it != set.end(); ++it) d.insert(it.key(), it.value());
+                if (!d.contains("pack")) d.insert("pack", "nocturne");
+                obs_video_info ovi{}; obs_get_video_info(&ovi);
+                QSize sz = e->size == QSize(1920, 1080) ? QSize(int(ovi.base_width), int(ovi.base_height))
+                                                       : QSize(int(e->size.width() * ovi.base_width / 1920.0), int(e->size.height() * ovi.base_height / 1080.0));
+                d.insert("width", sz.width());
+                d.insert("height", sz.height());
+                OBSDataAutoRelease wd = obs_data_create_from_json(QJsonDocument(d).toJson(QJsonDocument::Compact).constData());
+                obs_data_apply(st, wd);
             }
             if (typeId.isEmpty() || (typeId != "bc_gradient" && !obs_source_get_display_name(typeId.toUtf8().constData())))
                 continue;   // that capture type doesn't exist on this OS — skip rather than fail
@@ -1256,7 +1323,14 @@ bool Engine::loadStarterCollection() {
             if (t == "text") {
                 obs_video_info ovi{}; obs_get_video_info(&ovi);
                 obs_sceneitem_set_alignment(item, OBS_ALIGN_CENTER);
-                vec2 pos{ovi.base_width / 2.f, ovi.base_height / 2.f};
+                const QJsonArray at = io.value("at").toArray();
+                vec2 pos{float(ovi.base_width * at.at(0).toDouble(0.5)), float(ovi.base_height * at.at(1).toDouble(0.5))};
+                obs_sceneitem_set_pos(item, &pos);
+            } else if (t == "widget") {
+                obs_video_info ovi{}; obs_get_video_info(&ovi);
+                const QJsonArray at = io.value("at").toArray();
+                const float w = float(obs_data_get_int(st, "width")), h = float(obs_data_get_int(st, "height"));
+                vec2 pos{float(ovi.base_width * at.at(0).toDouble(0.5)) - w / 2, float(ovi.base_height * at.at(1).toDouble(0.5)) - h / 2};
                 obs_sceneitem_set_pos(item, &pos);
             } else if (t != "bc_gradient" || !align.isEmpty() || scale != 1.0) {
                 fitItemToCanvas(item, scale, align.isEmpty() ? "center" : align);

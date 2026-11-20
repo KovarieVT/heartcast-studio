@@ -1,25 +1,210 @@
 {
-  "name": "Starter Collection",
-  "scenes": [
-    {"name": "Starting Soon ♡", "items": [
-      {"type": "bc_gradient", "name": "Pastel Background", "settings": {"color1": "#FFDCEB", "color2": "#D2F3E7"}},
-      {"type": "text", "name": "Starting Soon Text", "settings": {"text": "starting soon ♡", "size": 96, "color": "#C96F9D"}, "align": "center"}
-    ]},
-    {"name": "Just Chatting", "items": [
-      {"type": "bc_gradient", "name": "Chatting Background", "settings": {"color1": "#EDE4FF", "color2": "#FFDCEB"}},
-      {"type": "webcam", "name": "Webcam", "settings": {}}
-    ]},
-    {"name": "Gameplay", "items": [
-      {"type": "game_capture", "name": "Game", "settings": {}},
-      {"type": "webcam", "name": "Webcam (corner)", "settings": {}, "scale": 0.28, "align": "bottom_right"}
-    ]},
-    {"name": "BRB", "items": [
-      {"type": "bc_gradient", "name": "BRB Background", "settings": {"color1": "#D2F3E7", "color2": "#FFF9FC"}},
-      {"type": "text", "name": "BRB Text", "settings": {"text": "be right back ✦", "size": 96, "color": "#77CDB1"}, "align": "center"}
-    ]},
-    {"name": "Ending ♡", "items": [
-      {"type": "bc_gradient", "name": "Ending Background", "settings": {"color1": "#F7C4D8", "color2": "#DCCCF7"}},
-      {"type": "text", "name": "Ending Text", "settings": {"text": "thank you for watching ♡", "size": 84, "color": "#FFF9FC"}, "align": "center"}
-    ]}
-  ]
+ "name": "Starter Collection",
+ "scenes": [
+  {
+   "name": "Starting Soon",
+   "items": [
+    {
+     "type": "bc_gradient",
+     "name": "Night Background",
+     "settings": {
+      "color1": "#1D1022",
+      "color2": "#0B0A0D"
+     }
+    },
+    {
+     "type": "widget",
+     "catalog": "ambient.bats",
+     "name": "Bats",
+     "at": [
+      0.5,
+      0.5
+     ]
+    },
+    {
+     "type": "text",
+     "name": "Starting Soon Text",
+     "settings": {
+      "text": "The night begins soon",
+      "size": 96,
+      "color": "#E6DED2"
+     },
+     "align": "center",
+     "at": [
+      0.5,
+      0.42
+     ]
+    },
+    {
+     "type": "widget",
+     "catalog": "countdown",
+     "name": "Starting Countdown",
+     "at": [
+      0.5,
+      0.62
+     ],
+     "settings": {
+      "countdown_minutes": 10
+     }
+    },
+    {
+     "type": "widget",
+     "catalog": "candles",
+     "name": "Candles",
+     "at": [
+      0.5,
+      0.86
+     ]
+    }
+   ]
+  },
+  {
+   "name": "Just Chatting",
+   "items": [
+    {
+     "type": "bc_gradient",
+     "name": "Chatting Background",
+     "settings": {
+      "color1": "#24142E",
+      "color2": "#0B0A0D"
+     }
+    },
+    {
+     "type": "webcam",
+     "name": "Webcam",
+     "settings": {}
+    },
+    {
+     "type": "widget",
+     "catalog": "chat",
+     "name": "Chat Box",
+     "at": [
+      0.84,
+      0.5
+     ]
+    },
+    {
+     "type": "widget",
+     "catalog": "alerts",
+     "name": "Alerts",
+     "at": [
+      0.5,
+      0.16
+     ]
+    },
+    {
+     "type": "widget",
+     "catalog": "goal.followers",
+     "name": "Follower Goal",
+     "at": [
+      0.24,
+      0.92
+     ]
+    }
+   ]
+  },
+  {
+   "name": "Gameplay",
+   "items": [
+    {
+     "type": "game_capture",
+     "name": "Game",
+     "settings": {}
+    },
+    {
+     "type": "webcam",
+     "name": "Webcam (corner)",
+     "settings": {},
+     "scale": 0.28,
+     "align": "bottom_right"
+    },
+    {
+     "type": "widget",
+     "catalog": "alerts",
+     "name": "Gameplay Alerts",
+     "at": [
+      0.5,
+      0.14
+     ]
+    }
+   ]
+  },
+  {
+   "name": "BRB",
+   "items": [
+    {
+     "type": "bc_gradient",
+     "name": "BRB Background",
+     "settings": {
+      "color1": "#2A0C14",
+      "color2": "#0B0A0D"
+     }
+    },
+    {
+     "type": "widget",
+     "catalog": "ambient.fog",
+     "name": "Fog",
+     "at": [
+      0.5,
+      0.5
+     ]
+    },
+    {
+     "type": "text",
+     "name": "BRB Text",
+     "settings": {
+      "text": "Be right back",
+      "size": 96,
+      "color": "#B8935A"
+     },
+     "align": "center",
+     "at": [
+      0.5,
+      0.45
+     ]
+    },
+    {
+     "type": "widget",
+     "catalog": "candles",
+     "name": "BRB Candles",
+     "at": [
+      0.5,
+      0.82
+     ]
+    }
+   ]
+  },
+  {
+   "name": "Ending",
+   "items": [
+    {
+     "type": "bc_gradient",
+     "name": "Ending Background",
+     "settings": {
+      "color1": "#33101C",
+      "color2": "#0B0A0D"
+     }
+    },
+    {
+     "type": "widget",
+     "catalog": "ambient.ash",
+     "name": "Falling Ash",
+     "at": [
+      0.5,
+      0.5
+     ]
+    },
+    {
+     "type": "text",
+     "name": "Ending Text",
+     "settings": {
+      "text": "Thank you for watching",
+      "size": 84,
+      "color": "#F3ECDF"
+     },
+     "align": "center"
+    }
+   ]
+  }
+ ]
 }

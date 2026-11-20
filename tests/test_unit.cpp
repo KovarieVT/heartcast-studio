@@ -143,7 +143,7 @@ private Q_SLOTS:
     void devCredentialsPrecedence() {
         using K = DevCredentials::Key;
         using S = DevCredentials::Source;
-        qunsetenv("HEARTCAST_TWITCH_CLIENT_ID");
+        qunsetenv("KOVALIVE_TWITCH_CLIENT_ID");
         QVERIFY(DevCredentials::set(K::TwitchClientId, QString()));
         QCOMPARE(DevCredentials::source(K::TwitchClientId), S::None);
         QVERIFY(!DevCredentials::ready("twitch"));
@@ -156,17 +156,17 @@ private Q_SLOTS:
         QVERIFY(DevCredentials::ready("twitch"));
 
         // An environment variable always wins.
-        qputenv("HEARTCAST_TWITCH_CLIENT_ID", "fromenvironment0000000000000000");
+        qputenv("KOVALIVE_TWITCH_CLIENT_ID", "fromenvironment0000000000000000");
         DevCredentials::reload();
         QCOMPARE(DevCredentials::twitchClientId(), QStringLiteral("fromenvironment0000000000000000"));
         QCOMPARE(DevCredentials::source(K::TwitchClientId), S::Environment);
-        qunsetenv("HEARTCAST_TWITCH_CLIENT_ID");
+        qunsetenv("KOVALIVE_TWITCH_CLIENT_ID");
         DevCredentials::reload();
         QCOMPARE(DevCredentials::source(K::TwitchClientId), S::App);
 
         // YouTube needs both the client ID and the Desktop-app secret.
-        qunsetenv("HEARTCAST_GOOGLE_CLIENT_ID");
-        qunsetenv("HEARTCAST_GOOGLE_CLIENT_SECRET");
+        qunsetenv("KOVALIVE_GOOGLE_CLIENT_ID");
+        qunsetenv("KOVALIVE_GOOGLE_CLIENT_SECRET");
         QVERIFY(DevCredentials::set(K::GoogleClientId, "123-abc.apps.googleusercontent.com"));
         QVERIFY(DevCredentials::set(K::GoogleClientSecret, QString()));
         QVERIFY(!DevCredentials::ready("youtube"));

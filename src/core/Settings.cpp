@@ -28,12 +28,12 @@ QJsonObject Settings::defaults() {
             {"crashReports", "local"}   // local | off  (no remote upload without consent)
         }},
         {"appearance", QJsonObject{
-            {"theme", "cotton-candy"},
-            {"accent", "#F5A6C8"},
+            {"theme", "nocturne"},
+            {"accent", "#9E1B32"},
             {"uiScale", 1.0},
             {"fontPt", 10},
             {"compact", false},
-            {"sparkles", true}
+            {"ornaments", true}
         }},
         {"video", QJsonObject{
             {"baseWidth", 1920}, {"baseHeight", 1080},

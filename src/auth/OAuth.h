@@ -23,8 +23,8 @@ struct TokenSet {
 };
 
 // Developer credentials are NEVER compiled into release binaries.
-// Order: environment variable → entered in HeartCast (Settings → Advanced → Developer
-// credentials; stored with SecureStore/DPAPI) → %APPDATA%/HeartCast/developer.json.
+// Order: environment variable → entered in KovaLive (Settings → Advanced → Developer
+// credentials; stored with SecureStore/DPAPI) → %APPDATA%/KovaLive/developer.json.
 // Client IDs are public identifiers; a "client secret" is only used for Google's
 // *installed app* clients, which Google documents as non-confidential.
 struct DevCredentials {

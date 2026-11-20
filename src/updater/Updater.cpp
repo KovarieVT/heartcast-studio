@@ -13,8 +13,8 @@
 #include <QProcess>
 #include <QSaveFile>
 
-#ifndef HEARTCAST_UPDATE_FEED
-#define HEARTCAST_UPDATE_FEED ""
+#ifndef KOVALIVE_UPDATE_FEED
+#define KOVALIVE_UPDATE_FEED ""
 #endif
 
 namespace bc {
@@ -26,7 +26,7 @@ Updater &Updater::instance() {
 
 QString Updater::feedUrl() {
     const QString s = Settings::instance().s("updates.feed");
-    return s.isEmpty() ? QStringLiteral(HEARTCAST_UPDATE_FEED) : s;
+    return s.isEmpty() ? QStringLiteral(KOVALIVE_UPDATE_FEED) : s;
 }
 
 bool Updater::isNewer(const QString &remote, const QString &local) {
@@ -63,7 +63,7 @@ void Updater::check(bool userInitiated) {
 
 void Updater::downloadAndInstall(const UpdateInfo &info) {
     const QString dir = Paths::ensure(Paths::dataRoot() + "/updates");
-    const QString target = dir + QStringLiteral("/HeartCastStudio-%1-Setup.exe").arg(info.version.toString());
+    const QString target = dir + QStringLiteral("/KovaLive-%1-Setup.exe").arg(info.version.toString());
     QNetworkRequest r{QUrl(info.url)};
     r.setAttribute(QNetworkRequest::RedirectPolicyAttribute, QNetworkRequest::NoLessSafeRedirectPolicy);
     auto *rep = m_nam.get(r);

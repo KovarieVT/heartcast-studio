@@ -83,7 +83,7 @@
         "audioBitrate": 160
       },
       "keyHelp": "Kick → Creator Dashboard → Settings → Stream URL & Key. Copy BOTH the Stream URL and the Stream Key.",
-      "limitations": "Kick's public developer API is new and gated; HeartCast uses Stream URL + Key. Chat/events integration is a planned plugin once API access is approved for this app."
+      "limitations": "Kick's public developer API is new and gated; KovaLive uses Stream URL + Key. Chat/events integration is a planned plugin once API access is approved for this app."
     },
     {
       "id": "tiktok",
@@ -120,7 +120,7 @@
         "audioBitrate": 128
       },
       "keyHelp": "Facebook → Live Producer → Streaming software → use a persistent stream key.",
-      "limitations": "The Facebook Live Video API requires a Meta app that passes App Review (publish_video, pages_manage_posts). Until HeartCast's Meta app is approved, use Live Producer stream keys."
+      "limitations": "The Facebook Live Video API requires a Meta app that passes App Review (publish_video, pages_manage_posts). Until KovaLive's Meta app is approved, use Live Producer stream keys."
     },
     {
       "id": "instagram",

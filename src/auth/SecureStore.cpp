@@ -18,13 +18,14 @@ static QString blobPath(const QString &name) {
 }
 
 #ifdef _WIN32
+// Unchanged since the app was called HeartCast: changing it would make existing secrets unreadable.
 static const char kEntropy[] = "HeartCast.Studio.v1.secret-entropy";
 
 bool SecureStore::put(const QString &name, const QByteArray &secret) {
     DATA_BLOB in{DWORD(secret.size()), reinterpret_cast<BYTE *>(const_cast<char *>(secret.data()))};
     DATA_BLOB ent{DWORD(sizeof(kEntropy)), reinterpret_cast<BYTE *>(const_cast<char *>(kEntropy))};
     DATA_BLOB out{};
-    if (!CryptProtectData(&in, L"HeartCast", &ent, nullptr, nullptr, CRYPTPROTECT_UI_FORBIDDEN, &out))
+    if (!CryptProtectData(&in, L"KovaLive", &ent, nullptr, nullptr, CRYPTPROTECT_UI_FORBIDDEN, &out))
         return false;
     QSaveFile f(blobPath(name));
     bool ok = f.open(QIODevice::WriteOnly);

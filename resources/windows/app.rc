@@ -17,13 +17,13 @@ BEGIN
     BEGIN
         BLOCK "040904b0"
         BEGIN
-            VALUE "CompanyName", "HeartCast"
-            VALUE "FileDescription", "HeartCast Studio - Live Streaming Studio"
+            VALUE "CompanyName", "KovaLive"
+            VALUE "FileDescription", "KovaLive! - Live Streaming Studio"
             VALUE "FileVersion", "0.1.0.0"
-            VALUE "InternalName", "HeartCastStudio"
-            VALUE "LegalCopyright", "Copyright (C) 2026 HeartCast contributors. GPL-2.0-or-later."
-            VALUE "OriginalFilename", "HeartCastStudio.exe"
-            VALUE "ProductName", "HeartCast Studio"
+            VALUE "InternalName", "KovaLive"
+            VALUE "LegalCopyright", "Copyright (C) 2026 KovaLive contributors. GPL-2.0-or-later."
+            VALUE "OriginalFilename", "KovaLive.exe"
+            VALUE "ProductName", "KovaLive!"
             VALUE "ProductVersion", "0.1.0"
         END
     END

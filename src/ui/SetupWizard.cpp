@@ -95,7 +95,7 @@ private:
 class CameraPage : public QWizardPage {
 public:
     CameraPage() {
-        setTitle(tr("Camera ✦"));
+        setTitle(tr("Camera"));
         setSubTitle(tr("Choose a webcam or capture card. You can add more later as sources."));
         auto *v = new QVBoxLayout(this);
         combo = new QComboBox;
@@ -121,7 +121,7 @@ private:
 };
 
 SetupWizard::SetupWizard(QWidget *parent) : QWizard(parent) {
-    setWindowTitle(tr("Welcome to HeartCast Studio ♡"));
+    setWindowTitle(tr("Welcome to KovaLive!"));
     setWizardStyle(QWizard::ModernStyle);
     setOption(QWizard::HaveCustomButton1, true);
     setButtonText(QWizard::CustomButton1, tr("Skip setup"));
@@ -131,7 +131,7 @@ SetupWizard::SetupWizard(QWidget *parent) : QWizard(parent) {
     const HardwareInfo hw = HardwareInfo::detect();
 
     // Welcome
-    auto *w = makePage(tr("Hi there, cutie! ♡"), tr("Let's set up your streaming studio. It takes about a minute."));
+    auto *w = makePage(tr("Welcome to KovaLive!"), tr("Let's set up your streaming studio. It takes about a minute."));
     auto *wl = new QVBoxLayout(w);
     auto *logo = new QLabel; logo->setPixmap(QPixmap(":/icons/logo_256.png").scaled(150, 150, Qt::KeepAspectRatio, Qt::SmoothTransformation));
     wl->addWidget(logo, 0, Qt::AlignHCenter);
@@ -161,7 +161,7 @@ SetupWizard::SetupWizard(QWidget *parent) : QWizard(parent) {
     setPage(Microphone, new MicLevelPage);
 
     // Output device
-    auto *o = makePage(tr("Speakers / headphones"), tr("Where should HeartCast play monitoring and alert previews?"));
+    auto *o = makePage(tr("Speakers / headphones"), tr("Where should KovaLive play monitoring and alert previews?"));
     auto *of = new QFormLayout(o);
     auto *outCombo = new QComboBox;
     for (const auto &d : QMediaDevices::audioOutputs()) outCombo->addItem(d.description(), d.id());
@@ -212,7 +212,7 @@ SetupWizard::SetupWizard(QWidget *parent) : QWizard(parent) {
     auto *enc = new QComboBox;
     const QString best = Engine::instance().bestEncoder();
     for (const auto &e : Engine::instance().videoEncoders())
-        enc->addItem(QStringLiteral("%1%2").arg(e.name, e.id == best ? tr("  ✦ recommended") : QString()), e.id);
+        enc->addItem(QStringLiteral("%1%2").arg(e.name, e.id == best ? tr("  (recommended)") : QString()), e.id);
     enc->setCurrentIndex(qMax(0, enc->findData(best)));
     auto *bitrate = new QSpinBox; bitrate->setRange(1000, 50000); bitrate->setSingleStep(500); bitrate->setValue(6000); bitrate->setSuffix(" kbps");
     ef->addRow(tr("Video encoder"), enc);
@@ -222,14 +222,14 @@ SetupWizard::SetupWizard(QWidget *parent) : QWizard(parent) {
     setPage(Encoder, en);
 
     // Platform
-    auto *pl = makePage(tr("Where do you stream?"), tr("Add your first destination. You can add more (multistream) in Stream Manager."));
+    auto *pl = makePage(tr("Where do you stream?"), tr("Add your first destination. You can add more (multistream) later in Settings → Stream."));
     auto *pf = new QFormLayout(pl);
     auto *plat = new QComboBox;
     plat->addItem(tr("Skip for now"), QString());
     for (const auto &p : PlatformCatalog::all()) plat->addItem(p.name, p.id);
     auto *server = new QLineEdit; auto *key = new QLineEdit; key->setEchoMode(QLineEdit::Password);
     auto *connectBtn = new QPushButton(tr("Connect account in browser"));
-    connectBtn->setProperty("accent", "mint");
+    connectBtn->setProperty("accent", "secondary");
     auto *help = new QLabel; help->setWordWrap(true); help->setObjectName("Muted"); help->setOpenExternalLinks(true);
     pf->addRow(tr("Platform"), plat);
     pf->addRow(tr("Server URL"), server);
@@ -250,16 +250,16 @@ SetupWizard::SetupWizard(QWidget *parent) : QWizard(parent) {
         PlatformAccount *a = PlatformHub::instance().account(id);
         if (!a) return;
         if (!ensureDevCredentials(id, pl)) {
-            help->setText(tr("Connecting needs a developer Client ID first. You can skip that for now: paste your stream key above and connect later from Stream Manager."));
+            help->setText(tr("Connecting needs a developer Client ID first. You can skip that for now: paste your stream key above and connect later from Settings → Stream."));
             return;
         }
         a->connectAccount();
-        help->setText(tr("Finish signing in in your browser. Your password is never entered in HeartCast."));
+        help->setText(tr("Finish signing in in your browser. Your password is never entered in KovaLive."));
     });
     connect(&PlatformHub::instance(), &PlatformHub::deviceCode, pl, [help](const QString &, const QString &code, const QString &url) {
         help->setText(tr("Open <a href='%1'>%1</a> and enter code <b style='font-size:15pt'>%2</b>").arg(url, code));
     });
-    connect(&PlatformHub::instance(), &PlatformHub::accountsChanged, pl, [help] { help->setText(tr("Account connected ♡ — the stream key will be fetched when you go live.")); });
+    connect(&PlatformHub::instance(), &PlatformHub::accountsChanged, pl, [help] { help->setText(tr("Account connected. the stream key will be fetched when you go live.")); });
     update();
     pl->registerField("platform", plat, "currentData");
     pl->registerField("server", server);
@@ -267,13 +267,13 @@ SetupWizard::SetupWizard(QWidget *parent) : QWizard(parent) {
     setPage(Platform, pl);
 
     // Theme
-    auto *th = makePage(tr("Make it yours ♡"), tr("Pick an accent colour and how sparkly you want things."));
+    auto *th = makePage(tr("Make it yours"), tr("Pick an accent colour for buttons, highlights and the live indicator."));
     auto *tl = new QVBoxLayout(th);
     auto *grp = new QButtonGroup(th);
     auto *row = new QHBoxLayout;
     int idx = 0;
-    for (const auto &[name, col] : QList<QPair<QString, QString>>{{tr("Cotton Candy"), "#F5A6C8"}, {tr("Strawberry"), "#E98DB7"},
-             {tr("Deep Rose"), "#C96F9D"}, {tr("Mint"), "#77CDB1"}, {tr("Lavender"), "#B9A3EA"}}) {
+    for (const auto &[name, col] : QList<QPair<QString, QString>>{{tr("Crimson"), "#9E1B32"}, {tr("Blood Moon"), "#C8283F"},
+             {tr("Amethyst"), "#6E3B8A"}, {tr("Old Gold"), "#B8935A"}, {tr("Verdigris"), "#3F8F7A"}}) {
         auto *b = new QRadioButton(name);
         b->setStyleSheet(QStringLiteral("QRadioButton::indicator:checked{background:%1;}").arg(col));
         b->setProperty("color", col);
@@ -284,7 +284,7 @@ SetupWizard::SetupWizard(QWidget *parent) : QWizard(parent) {
     }
     if (!grp->checkedButton()) grp->button(0)->setChecked(true);
     tl->addLayout(row);
-    auto *anim = new QCheckBox(tr("Animated splash screen and decorations"));
+    auto *anim = new QCheckBox(tr("Animated splash screen and candle-lit logo"));
     anim->setChecked(true);
     tl->addWidget(anim);
     tl->addStretch();
@@ -292,7 +292,7 @@ SetupWizard::SetupWizard(QWidget *parent) : QWizard(parent) {
     connect(grp, &QButtonGroup::idClicked, th, [grp] { Settings::instance().set("appearance.accent", grp->checkedButton()->property("color").toString()); });
     setPage(Theme, th);
 
-    auto *fin = makePage(tr("All set! ✦"), tr("Your studio is ready. Here's what we'll configure:"));
+    auto *fin = makePage(tr("All set"), tr("Your studio is ready. Here's what we'll configure:"));
     auto *finL = new QVBoxLayout(fin);
     auto *summary = new QLabel; summary->setWordWrap(true);
     finL->addWidget(summary);

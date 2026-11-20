@@ -1,0 +1,212 @@
+{
+    "stingers": [
+        {
+            "durationMs": 1500,
+            "file": "bat-swarm.webm",
+            "group": "Gothic",
+            "id": "batswarm",
+            "pointMs": 700,
+            "title": "Bat Swarm"
+        },
+        {
+            "durationMs": 1533,
+            "file": "crimson-veil.webm",
+            "group": "Gothic",
+            "id": "crimsonveil",
+            "pointMs": 700,
+            "title": "Crimson Veil"
+        },
+        {
+            "durationMs": 1500,
+            "file": "cathedral-doors.webm",
+            "group": "Gothic",
+            "id": "cathedraldoors",
+            "pointMs": 767,
+            "title": "Cathedral Doors"
+        },
+        {
+            "durationMs": 1500,
+            "file": "raven-feathers.webm",
+            "group": "Gothic",
+            "id": "ravenfeathers",
+            "pointMs": 733,
+            "title": "Raven Feathers"
+        },
+        {
+            "durationMs": 1533,
+            "file": "coffin-lid.webm",
+            "group": "Gothic",
+            "id": "coffinlid",
+            "pointMs": 733,
+            "title": "Coffin Lid"
+        },
+        {
+            "durationMs": 1533,
+            "file": "blood-moon.webm",
+            "group": "Gothic",
+            "id": "bloodmoon",
+            "pointMs": 700,
+            "title": "Blood Moon"
+        },
+        {
+            "durationMs": 1600,
+            "file": "stained-glass.webm",
+            "group": "Gothic",
+            "id": "stainedglass",
+            "pointMs": 700,
+            "title": "Shattered Stained Glass"
+        },
+        {
+            "durationMs": 1533,
+            "file": "candle-snuff.webm",
+            "group": "Gothic",
+            "id": "candlesnuff",
+            "pointMs": 733,
+            "title": "Candle Snuff"
+        },
+        {
+            "durationMs": 1467,
+            "file": "iron-portcullis.webm",
+            "group": "Gothic",
+            "id": "portcullis",
+            "pointMs": 733,
+            "title": "Iron Portcullis"
+        },
+        {
+            "durationMs": 1600,
+            "file": "thorn-vines.webm",
+            "group": "Gothic",
+            "id": "thornvines",
+            "pointMs": 733,
+            "title": "Thorn Vines"
+        },
+        {
+            "durationMs": 1600,
+            "file": "midnight-smoke.webm",
+            "group": "Gothic",
+            "id": "midnightsmoke",
+            "pointMs": 1133,
+            "title": "Midnight Smoke"
+        },
+        {
+            "durationMs": 1533,
+            "file": "velvet-curtain.webm",
+            "group": "Gothic",
+            "id": "velvetcurtain",
+            "pointMs": 733,
+            "title": "Velvet Curtain"
+        },
+        {
+            "durationMs": 1600,
+            "file": "graveyard-fog.webm",
+            "group": "Gothic",
+            "id": "graveyardfog",
+            "pointMs": 733,
+            "title": "Graveyard Fog"
+        },
+        {
+            "durationMs": 1533,
+            "file": "black-rose.webm",
+            "group": "Gothic",
+            "id": "blackrose",
+            "pointMs": 600,
+            "title": "Black Rose"
+        },
+        {
+            "durationMs": 1467,
+            "file": "heart-burst.webm",
+            "group": "Cute",
+            "id": "heartburst",
+            "pointMs": 600,
+            "title": "Heart Burst"
+        },
+        {
+            "durationMs": 1467,
+            "file": "sparkle-sweep.webm",
+            "group": "Cute",
+            "id": "sparklesweep",
+            "pointMs": 733,
+            "title": "Sparkle Sweep"
+        },
+        {
+            "durationMs": 1533,
+            "file": "bubble-pop.webm",
+            "group": "Cute",
+            "id": "bubblepop",
+            "pointMs": 600,
+            "title": "Bubble Pop"
+        },
+        {
+            "durationMs": 1467,
+            "file": "candy-swirl.webm",
+            "group": "Cute",
+            "id": "candyswirl",
+            "pointMs": 600,
+            "title": "Candy Swirl"
+        },
+        {
+            "durationMs": 1533,
+            "file": "cloud-puff.webm",
+            "group": "Cute",
+            "id": "cloudpuff",
+            "pointMs": 667,
+            "title": "Cloud Puff"
+        },
+        {
+            "durationMs": 1467,
+            "file": "steel-shutter.webm",
+            "group": "Bold",
+            "id": "steelshutter",
+            "pointMs": 667,
+            "title": "Steel Shutter"
+        },
+        {
+            "durationMs": 1533,
+            "file": "inferno.webm",
+            "group": "Bold",
+            "id": "inferno",
+            "pointMs": 1000,
+            "title": "Inferno"
+        },
+        {
+            "durationMs": 1400,
+            "file": "lightning-strike.webm",
+            "group": "Bold",
+            "id": "lightning",
+            "pointMs": 633,
+            "title": "Lightning Strike"
+        },
+        {
+            "durationMs": 1467,
+            "file": "claw-slash.webm",
+            "group": "Bold",
+            "id": "clawslash",
+            "pointMs": 700,
+            "title": "Claw Slash"
+        },
+        {
+            "durationMs": 1600,
+            "file": "armor-plates.webm",
+            "group": "Bold",
+            "id": "armorplates",
+            "pointMs": 733,
+            "title": "Armor Plates"
+        },
+        {
+            "durationMs": 1533,
+            "file": "shockwave.webm",
+            "group": "Bold",
+            "id": "shockwave",
+            "pointMs": 600,
+            "title": "Shockwave"
+        },
+        {
+            "durationMs": 1333,
+            "file": "glitch.webm",
+            "group": "Bold",
+            "id": "glitch",
+            "pointMs": 633,
+            "title": "Glitch"
+        }
+    ]
+}

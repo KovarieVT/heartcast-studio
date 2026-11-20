@@ -27,7 +27,9 @@
 #include <QMessageBox>
 #include <QPushButton>
 #include <QSpinBox>
-#include <QTabWidget>
+#include <QListWidget>
+#include <QScrollArea>
+#include <QStackedWidget>
 #include <QTableWidget>
 #include <QTimer>
 #include <QUrl>
@@ -50,7 +52,7 @@ void applyProcessPriority() {
 void openMicTest(QWidget *parent) {
     auto *d = new QDialog(parent);
     d->setAttribute(Qt::WA_DeleteOnClose);
-    d->setWindowTitle(QObject::tr("Microphone test ♡"));
+    d->setWindowTitle(QObject::tr("Microphone test"));
     d->resize(520, 260);
     auto *lay = new QVBoxLayout(d);
     lay->addWidget(new QLabel(QObject::tr("Speak normally. Aim for the meter to peak in the pink zone (around −12 to −6 dB), never touching the red dot.")));
@@ -83,10 +85,16 @@ static QComboBox *combo(const QList<QPair<QString, QVariant>> &items) {
 
 SettingsPage::SettingsPage(QWidget *parent) : QWidget(parent) {
     auto *lay = new QVBoxLayout(this);
-    auto *title = new QLabel(tr("Settings")); title->setObjectName("H1");
-    lay->addWidget(title);
-    m_tabs = new QTabWidget;
-    lay->addWidget(m_tabs, 1);
+    auto *body = new QHBoxLayout;
+    m_categories = new QListWidget;
+    m_categories->setObjectName("SettingsCategories");
+    m_categories->setFixedWidth(190);
+    m_categories->setIconSize(QSize(18, 18));
+    m_pages = new QStackedWidget;
+    body->addWidget(m_categories);
+    body->addWidget(m_pages, 1);
+    lay->addLayout(body, 1);
+    connect(m_categories, &QListWidget::currentRowChanged, m_pages, &QStackedWidget::setCurrentIndex);
     auto &e = Engine::instance();
 
     // ---- General
@@ -107,7 +115,7 @@ SettingsPage::SettingsPage(QWidget *parent) : QWidget(parent) {
     auto *upd = new QPushButton(tr("Check for updates now"));
     connect(upd, &QPushButton::clicked, this, [] { Updater::instance().check(true); });
     gf->addRow(wiz); gf->addRow(upd);
-    m_tabs->addTab(g, tr("General"));
+    addCategory(g, tr("General"), QStringLiteral("⚙"));
 
     // ---- Appearance
     auto *a = new QWidget; auto *af = new QFormLayout(a);
@@ -124,8 +132,10 @@ SettingsPage::SettingsPage(QWidget *parent) : QWidget(parent) {
     m_fields.insert("appearance.accent", accentBtn);
     af->addRow(tr("Accent colour"), accentBtn);
     auto *presets = new QWidget; auto *ph = new QHBoxLayout(presets); ph->setContentsMargins(0, 0, 0, 0);
-    for (const QString c : {"#F5A6C8", "#E98DB7", "#C96F9D", "#77CDB1", "#A9E5D0", "#DCCCF7"}) {
-        auto *b = new QPushButton; b->setFixedSize(28, 28); b->setStyleSheet(QStringLiteral("background:%1;border-radius:14px;").arg(c));
+    for (const auto &[c, name] : QList<QPair<QString, QString>>{{"#9E1B32", tr("Crimson")}, {"#C8283F", tr("Blood Moon")},
+             {"#6E3B8A", tr("Amethyst")}, {"#B8935A", tr("Old Gold")}, {"#3F8F7A", tr("Verdigris")}, {"#7A86A8", tr("Moonsilver")}}) {
+        auto *b = new QPushButton; b->setFixedSize(28, 28); b->setToolTip(name);
+        b->setStyleSheet(QStringLiteral("background:%1;border:1px solid #2E2733;border-radius:2px;padding:0;").arg(c));
         connect(b, &QPushButton::clicked, this, [this, c, accentBtn] {
             Settings::instance().set("appearance.accent", c);
             accentBtn->setText(c); accentBtn->setStyleSheet("background:" + c);
@@ -141,8 +151,8 @@ SettingsPage::SettingsPage(QWidget *parent) : QWidget(parent) {
     auto *fpt = reg(m_fields, "appearance.fontPt", new QSpinBox); fpt->setRange(8, 16);
     af->addRow(tr("Font size"), fpt);
     af->addRow(QString(), reg(m_fields, "appearance.compact", new QCheckBox(tr("Compact mode (smaller paddings)"))));
-    af->addRow(QString(), reg(m_fields, "appearance.sparkles", new QCheckBox(tr("Sparkle decorations"))));
-    m_tabs->addTab(a, tr("Appearance"));
+    af->addRow(QString(), reg(m_fields, "appearance.ornaments", new QCheckBox(tr("Candle flicker on the logo"))));
+    addCategory(a, tr("Appearance"), QStringLiteral("☾"));
 
     // ---- Streaming / output
     auto *s = new QWidget; auto *sf = new QFormLayout(s);
@@ -181,7 +191,7 @@ SettingsPage::SettingsPage(QWidget *parent) : QWidget(parent) {
         prh->addWidget(b);
     }
     sf->addRow(tr("Performance profile"), profRow);
-    m_tabs->addTab(s, tr("Streaming"));
+    addCategory(s, tr("Output"), QStringLiteral("⇪"));
 
     // ---- Audio
     auto *au = new QWidget; auto *auf = new QFormLayout(au);
@@ -200,13 +210,13 @@ SettingsPage::SettingsPage(QWidget *parent) : QWidget(parent) {
     auf->addRow(tr("Desktop audio"), reg(m_fields, "audio.desktopDevice", combo(outs)));
     auf->addRow(tr("Microphone"), reg(m_fields, "audio.micDevice", combo(ins)));
     auf->addRow(tr("Monitoring device"), reg(m_fields, "audio.monitorDevice", combo(mons)));
-    auto *micTest = new QPushButton(tr("Test microphone ♡"));
+    auto *micTest = new QPushButton(tr("Test microphone"));
     connect(micTest, &QPushButton::clicked, this, [this] { openMicTest(this); });
     auf->addRow(micTest);
     auto *ah = new QLabel(tr("Per-source volume, mute, monitoring, sync offset, balance, tracks and filters live in the Audio Mixer."));
     ah->setWordWrap(true); ah->setObjectName("Muted");
     auf->addRow(ah);
-    m_tabs->addTab(au, tr("Audio"));
+    addCategory(au, tr("Audio"), QStringLiteral("♪"));
 
     // ---- Video
     auto *v = new QWidget; auto *vf = new QFormLayout(v);
@@ -221,7 +231,7 @@ SettingsPage::SettingsPage(QWidget *parent) : QWidget(parent) {
     vf->addRow(tr("Downscale filter"), reg(m_fields, "video.scaleType", combo({{"Bicubic", "bicubic"}, {"Lanczos (sharper)", "lanczos"}, {"Area", "area"}, {"Bilinear (fastest)", "bilinear"}})));
     vf->addRow(tr("Colour space"), reg(m_fields, "video.colorSpace", combo({{"Rec. 709", "709"}, {"Rec. 601", "601"}})));
     vf->addRow(tr("Colour range"), reg(m_fields, "video.colorRange", combo({{tr("Limited (recommended)"), "partial"}, {tr("Full"), "full"}})));
-    m_tabs->addTab(v, tr("Video"));
+    addCategory(v, tr("Video"), QStringLiteral("▣"));
 
     // ---- Recording
     auto *r = new QWidget; auto *rf = new QFormLayout(r);
@@ -239,7 +249,7 @@ SettingsPage::SettingsPage(QWidget *parent) : QWidget(parent) {
     rf->addRow(QString(), reg(m_fields, "recording.remuxToMp4", new QCheckBox(tr("Make an MP4 copy after recording (MKV only)"))));
     auto *rb = reg(m_fields, "recording.replayBufferSec", new QSpinBox); rb->setRange(5, 21600); rb->setSuffix(" s");
     rf->addRow(tr("Replay buffer length"), rb);
-    m_tabs->addTab(r, tr("Recording"));
+    addCategory(r, tr("Recording"), QStringLiteral("●"));
 
     // ---- Hotkeys
     auto *hk = new QWidget; auto *hl = new QVBoxLayout(hk);
@@ -272,7 +282,7 @@ SettingsPage::SettingsPage(QWidget *parent) : QWidget(parent) {
     connect(refreshHk, &QPushButton::clicked, this, fillHotkeys);
     hl->addWidget(refreshHk);
     QTimer::singleShot(0, this, fillHotkeys);
-    m_tabs->addTab(hk, tr("Hotkeys"));
+    addCategory(hk, tr("Hotkeys"), QStringLiteral("⌨"));
 
     // ---- Advanced
     auto *ad = new QWidget; auto *adf = new QFormLayout(ad);
@@ -285,10 +295,10 @@ SettingsPage::SettingsPage(QWidget *parent) : QWidget(parent) {
     auto *crashes = new QPushButton(tr("Open crash reports"));
     connect(crashes, &QPushButton::clicked, this, [] { QDesktopServices::openUrl(QUrl::fromLocalFile(Paths::crashes())); });
     auto *cache = new QPushButton(tr("Clear cache (thumbnails, generated images)"));
-    connect(cache, &QPushButton::clicked, this, [this] { QDir(Paths::cache() + "/thumbs").removeRecursively(); QMessageBox::information(this, tr("Cache"), tr("Cache cleared ✦")); });
+    connect(cache, &QPushButton::clicked, this, [this] { QDir(Paths::cache() + "/thumbs").removeRecursively(); QMessageBox::information(this, tr("Cache"), tr("Cache cleared.")); });
     auto *exp = new QPushButton(tr("Export configuration…"));
     connect(exp, &QPushButton::clicked, this, [this] {
-        const QString f = QFileDialog::getSaveFileName(this, tr("Export configuration"), "heartcast-config.json", "*.json");
+        const QString f = QFileDialog::getSaveFileName(this, tr("Export configuration"), "kovalive-config.json", "*.json");
         if (!f.isEmpty() && Settings::instance().exportTo(f))
             QMessageBox::information(this, tr("Export"), tr("Exported. Stream keys and account tokens are NOT included (they stay protected on this PC)."));
     });
@@ -305,7 +315,7 @@ SettingsPage::SettingsPage(QWidget *parent) : QWidget(parent) {
     });
     for (auto *b : {logs, crashes, cache, exp, imp, reset}) adf->addRow(b);
     auto *devBtn = new QPushButton(tr("Developer credentials (Twitch / YouTube sign-in)…"));
-    devBtn->setProperty("accent", "mint");
+    devBtn->setProperty("accent", "secondary");
     connect(devBtn, &QPushButton::clicked, this, [this] { DeveloperCredentialsDialog(QString(), this).exec(); });
     adf->addRow(devBtn);
     auto *dev = new QLabel(tr("Connecting Twitch or YouTube needs a free Client ID that you register yourself. Paste it with the button above "
@@ -313,17 +323,62 @@ SettingsPage::SettingsPage(QWidget *parent) : QWidget(parent) {
                            .arg(QDir::toNativeSeparators(Paths::dataRoot() + "/developer.json")));
     dev->setWordWrap(true); dev->setObjectName("Muted");
     adf->addRow(dev);
-    m_tabs->addTab(ad, tr("Advanced"));
+    addCategory(ad, tr("Advanced"), QStringLiteral("✧"));
 
     auto *row = new QHBoxLayout;
     row->addStretch();
-    auto *revert = new QPushButton(tr("Revert"));
-    auto *applyBtn = new QPushButton(tr("Apply ♡")); applyBtn->setProperty("accent", "pink");
-    row->addWidget(revert); row->addWidget(applyBtn);
+    auto *ok = new QPushButton(tr("OK")); ok->setProperty("accent", "primary"); ok->setDefault(true);
+    auto *cancel = new QPushButton(tr("Cancel"));
+    auto *applyBtn = new QPushButton(tr("Apply"));
+    for (QPushButton *b : {ok, cancel, applyBtn}) { b->setMinimumWidth(96); row->addWidget(b); }
     lay->addLayout(row);
-    connect(revert, &QPushButton::clicked, this, &SettingsPage::load);
+    connect(ok, &QPushButton::clicked, this, [this] { apply(); Q_EMIT closeRequested(); });
+    connect(cancel, &QPushButton::clicked, this, [this] { load(); Q_EMIT closeRequested(); });
     connect(applyBtn, &QPushButton::clicked, this, &SettingsPage::apply);
+    m_categories->setCurrentRow(0);
     load();
+}
+
+void SettingsPage::addCategory(QWidget *page, const QString &label, const QString &glyph) {
+    insertCategory(m_categories->count(), page, label, glyph);
+}
+
+void SettingsPage::insertCategory(int index, QWidget *page, const QString &label, const QString &glyph) {
+    auto *scroll = new QScrollArea;
+    scroll->setWidgetResizable(true);
+    scroll->setFrameShape(QFrame::NoFrame);
+    page->setContentsMargins(12, 6, 12, 6);
+    scroll->setWidget(page);
+    auto *it = new QListWidgetItem(glyph + QStringLiteral("   ") + label);
+    it->setData(Qt::UserRole, label);
+    it->setSizeHint(QSize(0, 34));
+    m_categories->insertItem(index, it);
+    m_pages->insertWidget(index, scroll);
+}
+
+void SettingsPage::orderCategories(const QStringList &labels) {
+    QSignalBlocker b(m_categories);
+    const QString current = m_categories->currentItem() ? m_categories->currentItem()->data(Qt::UserRole).toString() : QString();
+    int target = 0;
+    for (const QString &label : labels) {
+        for (int i = target; i < m_categories->count(); ++i) {
+            if (m_categories->item(i)->data(Qt::UserRole).toString() != label) continue;
+            QListWidgetItem *it = m_categories->takeItem(i);
+            QWidget *page = m_pages->widget(i);
+            m_pages->removeWidget(page);
+            m_categories->insertItem(target, it);
+            m_pages->insertWidget(target, page);
+            ++target;
+            break;
+        }
+    }
+    b.unblock();
+    showCategory(current.isEmpty() ? labels.value(0) : current);
+}
+
+void SettingsPage::showCategory(const QString &label) {
+    for (int i = 0; i < m_categories->count(); ++i)
+        if (m_categories->item(i)->data(Qt::UserRole).toString() == label) m_categories->setCurrentRow(i);
 }
 
 void SettingsPage::load() {
@@ -388,7 +443,7 @@ void SettingsPage::apply() {
     }
     if (before.value("audio").toObject().value("sampleRate") != after.value("audio").toObject().value("sampleRate")
         || before.value("audio").toObject().value("channels") != after.value("audio").toObject().value("channels"))
-        notes << tr("Audio sample rate/channel changes take effect after restarting HeartCast.");
+        notes << tr("Audio sample rate/channel changes take effect after restarting KovaLive.");
     if (s.s("audio.micDevice") != before.value("audio").toObject().value("micDevice").toString()) e.setAudioDevice(true, s.s("audio.micDevice"));
     if (s.s("audio.desktopDevice") != before.value("audio").toObject().value("desktopDevice").toString()) e.setAudioDevice(false, s.s("audio.desktopDevice"));
     if (auto *mon = qobject_cast<QComboBox *>(m_fields.value("audio.monitorDevice"))) e.setMonitoringDevice(mon->currentText(), mon->currentData().toString());
@@ -396,7 +451,7 @@ void SettingsPage::apply() {
     theme::apply(*qApp, s.s("appearance.accent"), s.i("appearance.fontPt"));
     s.save();
     Q_EMIT themeChanged();
-    QMessageBox::information(this, tr("Settings"), notes.isEmpty() ? tr("Saved ♡") : notes.join("\n"));
+    QMessageBox::information(this, tr("Settings"), notes.isEmpty() ? tr("Saved.") : notes.join("\n"));
 }
 
 } // namespace bc

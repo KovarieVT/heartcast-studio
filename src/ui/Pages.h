@@ -16,6 +16,8 @@ class QTreeWidget;
 class QSpinBox;
 class QCheckBox;
 
+class QScrollArea;
+
 namespace bc {
 
 class SourcesPanel;
@@ -32,20 +34,6 @@ struct SessionHistory {
     quint64 lastRamMB = 0;
 };
 
-class HomePage : public QWidget {
-    Q_OBJECT
-public:
-    explicit HomePage(QWidget *parent = nullptr);
-    void refresh();
-Q_SIGNALS:
-    void goLiveRequested();
-    void openPage(int index);
-private:
-    QHash<QString, QLabel *> m_tiles;
-    QLabel *m_live, *m_rec;
-    QGridLayout *m_sceneGrid;
-};
-
 class StreamManagerPage : public QWidget {
     Q_OBJECT
 public:
@@ -54,8 +42,6 @@ public:
     void reloadAccounts();
     void refreshStatus();
     QString streamTitle() const;
-Q_SIGNALS:
-    void goLiveRequested();
 private:
     void editDestination(const QString &id);
     void testNetwork();
@@ -98,16 +84,27 @@ private:
     QLabel *m_preview, *m_meta;
 };
 
+// Widget Gallery: every widget in the catalog by category with live previews, plus the
+// alert rules and the overlay packs. Shown from Tools → Widget Gallery and Sources ＋.
 class WidgetsPage : public QWidget {
     Q_OBJECT
 public:
-    WidgetsPage(SourcesPanel *sources, bool overlaysMode, QWidget *parent = nullptr);
+    explicit WidgetsPage(SourcesPanel *sources, QWidget *parent = nullptr);
+    void showCategory(const QString &category);
 private:
     void rebuildGallery();
+    void rebuildPacks();
+    void layoutCards();
+    bool eventFilter(QObject *o, QEvent *e) override;
     SourcesPanel *m_sources;
+    QScrollArea *m_galleryScroll = nullptr;
+    QList<QWidget *> m_cards;
+    int m_columns = 0;
     QComboBox *m_pack;
-    QGridLayout *m_grid;
-    bool m_overlays;
+    QListWidget *m_categories;
+    QLineEdit *m_search;
+    QGridLayout *m_grid, *m_packGrid;
+    QLabel *m_count;
 };
 
 class EffectsPage : public QWidget {

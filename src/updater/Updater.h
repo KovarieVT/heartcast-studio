@@ -13,11 +13,11 @@ struct UpdateInfo {
 };
 
 // Secure updater:
-//  1. Fetches a JSON feed over HTTPS (URL baked at build time via HEARTCAST_UPDATE_FEED,
+//  1. Fetches a JSON feed over HTTPS (URL baked at build time via KOVALIVE_UPDATE_FEED,
 //     or Settings "updates.feed"). No feed → updates are reported as unavailable.
 //  2. Downloads the installer over HTTPS, verifies SHA-256 from the feed AND (on
 //     Windows) a valid Authenticode signature before it is ever executed.
-//  3. Keeps the previous installer in %APPDATA%/HeartCast/updates for rollback.
+//  3. Keeps the previous installer in %APPDATA%/KovaLive/updates for rollback.
 class Updater : public QObject {
     Q_OBJECT
 public:

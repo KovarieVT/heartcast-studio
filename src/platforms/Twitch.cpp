@@ -51,7 +51,7 @@ void TwitchAccount::connectAccount() {
         m_tokens = t;
         m_tokens.save(kTokenName);
         validate([this](bool ok) {
-            if (ok) Q_EMIT status(tr("Connected to Twitch as %1 ♡").arg(m_login));
+            if (ok) Q_EMIT status(tr("Connected to Twitch as %1").arg(m_login));
             Q_EMIT connectionChanged();
         });
     });
@@ -286,7 +286,7 @@ void TwitchAccount::moderate(ModAction a, const ChatMessage &t, int seconds, boo
         break;
     case ModAction::Timeout:
     case ModAction::Ban: {
-        QJsonObject d{{"user_id", t.userId}, {"reason", "HeartCast moderation"}};
+        QJsonObject d{{"user_id", t.userId}, {"reason", "KovaLive moderation"}};
         if (a == ModAction::Timeout) d["duration"] = qBound(1, seconds, 1209600);
         helix("POST", "/moderation/bans" + q, QJsonObject{{"data", d}},
               report(a == ModAction::Ban ? tr("%1 banned").arg(t.user) : tr("%1 timed out").arg(t.user)));

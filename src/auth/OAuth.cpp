@@ -66,9 +66,9 @@ static QString storeName(DevCredentials::Key k) { return QStringLiteral("develop
 
 QString DevCredentials::envName(Key k) {
     switch (k) {
-    case Key::TwitchClientId: return QStringLiteral("HEARTCAST_TWITCH_CLIENT_ID");
-    case Key::GoogleClientId: return QStringLiteral("HEARTCAST_GOOGLE_CLIENT_ID");
-    case Key::GoogleClientSecret: return QStringLiteral("HEARTCAST_GOOGLE_CLIENT_SECRET");
+    case Key::TwitchClientId: return QStringLiteral("KOVALIVE_TWITCH_CLIENT_ID");
+    case Key::GoogleClientId: return QStringLiteral("KOVALIVE_GOOGLE_CLIENT_ID");
+    case Key::GoogleClientSecret: return QStringLiteral("KOVALIVE_GOOGLE_CLIENT_SECRET");
     }
     return {};
 }
@@ -241,8 +241,8 @@ void LoopbackPkceFlow::onConnection() {
         const bool ok = q.queryItemValue("state").toLatin1() == m_state && q.hasQueryItem("code");
         const QByteArray html = ok
             ? "<html><body style='font-family:sans-serif;background:#FFDCEB;color:#514852;text-align:center;padding-top:80px'>"
-              "<h1>&#9825; You're connected!</h1><p>You can close this tab and return to HeartCast Studio.</p></body></html>"
-            : "<html><body><h1>Sign-in failed</h1><p>Please return to HeartCast Studio and try again.</p></body></html>";
+              "<h1>&#9825; You're connected!</h1><p>You can close this tab and return to KovaLive.</p></body></html>"
+            : "<html><body><h1>Sign-in failed</h1><p>Please return to KovaLive and try again.</p></body></html>";
         sock->write("HTTP/1.1 200 OK\r\nContent-Type: text/html; charset=utf-8\r\nConnection: close\r\nContent-Length: "
                     + QByteArray::number(html.size()) + "\r\n\r\n" + html);
         sock->disconnectFromHost();

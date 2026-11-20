@@ -1,6 +1,5 @@
 #pragma once
 #include <QElapsedTimer>
-#include <QSvgRenderer>
 #include <QTimer>
 #include <QWidget>
 
@@ -26,15 +25,17 @@ protected:
     void paintEvent(QPaintEvent *) override;
 
 private:
-    struct Particle { int kind; QPointF pos; QPointF vel; double size, phase, spin; QColor color; };
+    struct Bat { QPointF pos; QPointF vel; double span, phase, speed; };
+    struct Ember { QPointF pos; QPointF vel; double size, phase; };
     void tick();
-    void spawn(Particle &p, bool anywhere);
+    void spawnBat(Bat &b, bool anywhere);
+    void spawnEmber(Ember &e, bool anywhere);
 
     bool m_animated;
-    QSvgRenderer m_logo;
     QTimer m_timer, m_watchdog;
     QElapsedTimer m_clock;
-    QList<Particle> m_particles;
+    QList<Bat> m_bats;
+    QList<Ember> m_embers;
     double m_shownPct = 0;
     int m_targetPct = 0;
     QString m_message;

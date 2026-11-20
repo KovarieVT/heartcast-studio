@@ -39,7 +39,10 @@ public:
     explicit SourcesPanel(PreviewWidget *preview, QWidget *parent = nullptr);
     void reload();
     void addSourceMenu(QWidget *anchor);
-    void addWidgetOfKind(const QString &kind, const QString &pack = "cotton-candy");
+    void addWidgetOfKind(const QString &catalogId, const QString &pack = "nocturne");
+Q_SIGNALS:
+    void galleryRequested();
+public:
 private:
     obs_sceneitem_t *currentItem() const;
     void onItemChanged(QTreeWidgetItem *it, int col);

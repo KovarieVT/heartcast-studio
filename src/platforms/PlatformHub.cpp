@@ -121,7 +121,7 @@ bool PlatformHub::hasStreamKey(const Destination &d) const { return !SecureStore
 void PlatformHub::goLive(const QString &title, const std::function<void(bool, const QString &)> &done) {
     QVector<Destination> dests;
     for (const auto &d : destinations()) if (d.enabled) dests << d;
-    if (dests.isEmpty()) { done(false, tr("Add at least one streaming destination in Stream Manager first.")); return; }
+    if (dests.isEmpty()) { done(false, tr("Add at least one streaming destination in Settings → Stream first.")); return; }
 
     // Fetch fresh ingest targets for connected API platforms (in parallel), then start.
     auto pending = QSharedPointer<int>::create(0);
@@ -203,12 +203,12 @@ void PlatformHub::onEvent(const StreamEvent &e) {
 void PlatformHub::emitTestEvent(const QString &type) {
     StreamEvent e;
     e.platform = "test"; e.type = type; e.test = true;
-    static const char *names[] = {"MochiMochi", "StrawberryMilk", "Pastelle", "CloudHopper", "SugarStar"};
+    static const char *names[] = {"Nightshade", "Ravenmoor", "VelvetCrypt", "Hollowmoon", "Ashgrave"};
     e.user = QString::fromLatin1(names[QDateTime::currentMSecsSinceEpoch() % 5]);
     if (type == "cheer") e.amount = 500;
     else if (type == "raid") e.amount = 42;
     else if (type == "gift") e.amount = 5;
-    else if (type == "donation") { e.amount = 5; e.message = tr("you're so cute!"); }
+    else if (type == "donation") { e.amount = 5; e.message = tr("long live the night!"); }
     onEvent(e);
 }
 

@@ -1,16 +1,16 @@
 # Streaming platform integrations
 
-HeartCast only uses each platform's **official** public API. Nothing is scraped, and users never type
+KovaLive only uses each platform's **official** public API. Nothing is scraped, and users never type
 their social-media password into the app. Where a platform does not allow third-party apps to do
-something, HeartCast says so and uses the supported alternative: Stream URL + Stream Key.
+something, KovaLive says so and uses the supported alternative: Stream URL + Stream Key.
 
 ## Developer credentials: never compiled into the app
 OAuth **Client IDs** are read at runtime from, in order:
-1. Environment variables `HEARTCAST_TWITCH_CLIENT_ID`, `HEARTCAST_GOOGLE_CLIENT_ID`, `HEARTCAST_GOOGLE_CLIENT_SECRET`
+1. Environment variables `KOVALIVE_TWITCH_CLIENT_ID`, `KOVALIVE_GOOGLE_CLIENT_ID`, `KOVALIVE_GOOGLE_CLIENT_SECRET`
 2. **Entered in the app**: *Settings → Advanced → Developer credentials*. This window also opens
    automatically when you click **Connect** and something is missing. Values are stored with
    SecureStore (Windows DPAPI). Whitespace pasted from a web page is stripped.
-3. `%APPDATA%\HeartCast\developer.json`:
+3. `%APPDATA%\KovaLive\developer.json`:
 ```json
 { "twitchClientId": "…", "googleClientId": "…apps.googleusercontent.com", "googleClientSecret": "…" }
 ```
@@ -22,9 +22,9 @@ Without credentials you can still stream with a manual Stream URL + Key. Only ac
 2. Go to <https://dev.twitch.tv/console/apps> → *Register Your Application*.
 3. Name: anything unique. OAuth Redirect URL: type `https://localhost` into the box (the device flow
    doesn't use it, but it's required). Don't press *Add*, because an empty extra row fails the console's HTTPS check. Category: Broadcaster Suite. **Client Type: Public**. A Confidential app can't finish
-   the device flow without a secret, and HeartCast's error message says so.
-4. Copy the Client ID. No client secret is needed: HeartCast uses the **Device Code Grant**. The user
-   opens twitch.tv/activate, enters the code shown in HeartCast and approves.
+   the device flow without a secret, and KovaLive's error message says so.
+4. Copy the Client ID. No client secret is needed: KovaLive uses the **Device Code Grant**. The user
+   opens twitch.tv/activate, enters the code shown in KovaLive and approves.
 
 | Feature | API | Scope |
 |---|---|---|

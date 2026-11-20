@@ -1,29 +1,33 @@
-# HeartCast Studio ♡
+# KovaLive!
 
-A native Windows live-streaming and recording studio with a pastel kawaii look:
-OBS-class scene compositing, multistreaming, recording, an audio mixer, native
-alerts and widgets, and a dockable workspace like OBS / PRISM Live Studio.
+A native Windows live-streaming and recording studio with a gothic look: OBS-class scene
+compositing on the OBS engine, multistreaming, recording, an audio mixer with VST 2 and VST3
+plugins, 89 native widgets, 26 stinger transitions, and a window laid out like OBS / Streamlabs.
 
-![Studio](docs/images/studio-docked-chat.png)
+![Studio](docs/images/studio.png)
 
 * **Native desktop app.** C++20 + Qt 6 Widgets for the UI, and **libobs** (OBS Studio's engine)
   for capture, compositing, encoding and output. No Electron, no web view, no Chromium.
-* **Real installer.** Inno Setup wizard in the same pink/mint theme. Handles the VC++ runtime,
-  the virtual camera driver, upgrades and a clean uninstall.
-* **Licence:** GPL-2.0-or-later, because libobs is GPL. See [THIRD-PARTY-LICENSES](docs/THIRD-PARTY-LICENSES.md).
+* **Laid out like OBS / Streamlabs.** Preview on top; Scenes · Sources · Audio Mixer · Scene
+  Transitions · Controls docked along the bottom; Chat on the right; File / Edit / View / Docks /
+  Scene Collection / Tools / Help menus; Settings in its own window with categories down the left
+  and OK / Cancel / Apply. Every dock can be moved, tabbed, popped out, locked and reset.
+* **Real installer.** Inno Setup wizard in a dark theme. Handles the VC++ runtime, the virtual
+  camera driver, upgrades, removal of the old "HeartCast Studio" install, and a clean uninstall.
+* **Licence:** GPL. The Windows package is GPL-3.0 because it ships the GPL-3.0-or-later VST3 host.
+  See [THIRD-PARTY-LICENSES](docs/THIRD-PARTY-LICENSES.md).
 
 ## Get the Windows .exe and installer
 
 Windows binaries are built by GitHub Actions (`.github/workflows/windows-build.yml`):
 
-1. Push this folder to a GitHub repository.
-2. Open **Actions → Windows build → Run workflow**. The first run compiles the OBS engine
-   (~40 min). Later runs reuse a cache.
-3. Download the artifact **HeartCastStudio-<version>-windows-x64**. It contains:
-   * `HeartCastStudio-<version>-Setup.exe`: the installer
-   * `HeartCastStudio-<version>-portable.zip`: unzip and run `bin\64bit\HeartCastStudio.exe`
-4. Push a tag like `v0.1.0` to publish a GitHub Release. This also creates the
-   `update.json` feed that the in-app updater reads.
+1. Open **Actions → Windows build → Run workflow** (or push to `main`). The first run compiles the
+   OBS engine (~40 min). Later runs reuse a cache.
+2. Download the artifact **KovaLive-<version>-windows-x64**. It contains:
+   * `KovaLive-<version>-Setup.exe`: the installer
+   * `KovaLive-<version>-portable.zip`: unzip and run `bin\64bit\KovaLive.exe`
+3. Push a tag like `v0.2.0` to publish a GitHub Release. This also creates the `update.json` feed
+   that the in-app updater reads.
 
 To build by hand on Windows, see [BUILD-INSTRUCTIONS](docs/BUILD-INSTRUCTIONS.md).
 
@@ -35,72 +39,79 @@ Legend: ✅ implemented and exercised by automated tests against real libobs ·
 
 | Area | Status | Notes |
 |---|---|---|
-| Native window, theme, animated splash (real progress + hang watchdog) | 🟢 | Animations can be turned off; decorations pause while live |
+| Native window, gothic theme (Nocturne palette, Cinzel + Inter fonts), animated splash with real progress | 🟢 | Animations can be turned off and pause while live |
 | First-run wizard (beginner / advanced, device checks, profiles) | 🟢 | Camera preview, mic meter, test tone, encoder pick |
-| Dockable workspace: drag, tab, float, nest, lock, reset, saved layouts | 🟢 | Scenes, Sources, Mixer, Transitions, Controls, Chat, Activity, Stats |
-| Scenes: create, rename, duplicate, delete, reorder, hotkeys, save/import/export collections | ✅ | |
+| OBS / Streamlabs layout: bottom docks, right-hand chat, OBS-style menus, status bar with LIVE/REC timers, CPU, FPS, dropped frames, kb/s | 🟢 | |
+| Docks: drag, tab, float, nest, lock, reset, saved layouts | 🟢 | Scenes, Sources, Audio Mixer, Scene Transitions, Controls, Chat, Activity Feed, Stats |
+| Settings window: General, Stream, Output, Recording, Audio, Video, Hotkeys, Appearance, Advanced; OK / Cancel / Apply | 🟢 | |
+| Scenes: create, rename, duplicate, delete, reorder, hotkeys, scene collections (new, duplicate, import, export, switch) | ✅ | |
 | Sources: every libobs input type, properties, transform, crop, rotate, lock, hide, group, duplicate, z-order | ✅ / 🟢 | Display/window/game capture, webcam, capture card, media, image, slideshow, text, colour, gradient, audio |
 | Preview editing: drag, corner-resize, snapping + guides, safe areas, nudge, undo/redo | 🟢 | |
 | Studio mode (preview → program), fullscreen projector | 🟢 | |
-| Transitions: cut, fade, fade-to-colour, swipe, slide, luma wipe, stinger + 4 original kawaii wipes | ✅ | Heart Iris, Star Burst, Ribbon Sweep, Sparkle Dissolve |
+| Transitions: cut, fade, fade-to-colour, swipe, slide, luma wipe (your image), your own stinger video | ✅ | |
+| **6 gothic wipes** (Cathedral Arch, Moonrise, Bloodfall, Stained Glass, Creeping Thorns, Wing Sweep) | ✅ | Native libobs transition with soft and glowing edges; test renders each one halfway |
+| **26 stinger transitions**: 14 gothic, 5 cute, 7 bold | ✅ | VP9 WebM with transparency. The test plays every one in libobs and checks the screen is fully covered at the cut and lands on the new scene |
 | Encoders: x264, NVENC, AMD AMF, Intel QSV, H.264 / HEVC / AV1 (whatever the PC supports) | ✅ x264 · 🖥️ GPU encoders | Auto-detected; CBR / VBR / CQP, keyframe interval, preset, profile, B-frames |
-| **Multistream:** N destinations from one shared encode, optional per-destination bitrate | ✅ | Test streams to 2 local RTMP servers at once; stopping one leaves the other running |
+| **Multistream:** N destinations from one shared encode, optional per-destination bitrate | ✅ | Test streams to 2 local RTMP servers at once |
 | Reconnect, per-destination errors, bandwidth estimate, connection test | ✅ / 🟢 | |
 | Recording: MKV/MP4/MOV/FLV/TS, quality presets, up to 6 audio tracks, pause/resume, auto-record, MKV→MP4 remux | ✅ | |
 | Replay buffer + save hotkey | ✅ | |
-| Recording library: thumbnails, rename, export, remux, recycle | 🟢 | |
-| Audio mixer: volume, mute, solo, monitoring, sync offset, balance, mono, tracks, peak meters, clip indicator | 🟢 | Global desktop and mic channels plus every audio source |
-| Audio filters: noise suppression, gate, expander, compressor, limiter, gain, EQ, presets | 🟢 | VST 2 hosting: ⏳ (module doesn't load in the Windows build yet) |
-| Video effects: colour correction, chroma/colour key, LUT, mask, crop, sharpen, scale | 🟢 | |
+| Audio mixer: volume, mute, solo, monitoring, sync offset, balance, mono, tracks, peak meters, clip indicator | 🟢 | |
+| Audio filters: noise suppression, gate, expander, compressor, limiter, gain, EQ, presets | 🟢 | |
+| **VST 2.x and VST3 plugins** | ✅ loading (Windows CI) · 🖥️ your plugins | obs-vst (VST 2) and the vendored obs-vst3 host; the Windows engine test checks both load. Using a real plugin and its editor needs a plugin installed on your PC; not exercised by CI |
 | AI background removal | 🖥️ | Needs the NVIDIA Video Effects SDK (RTX) or the obs-backgroundremoval plugin |
-| Native widgets: alerts (queue, animation, sound in stream), chat box, event list, labels, goals, countdown, stopwatch, social/sponsor panels, viewer count, text panel | ✅ / 🟢 | Drawn natively and pushed as video frames; no browser source |
-| 8 original overlay packs | 🟢 | Cotton Candy, Strawberry Milk, Mint Macaron, Pastel Dream, Pink Galaxy, Cherry Blossom, Magical Girl, Soft Academia |
+| **89 native widgets** in a searchable gallery (alerts, labels, goals, chat polls / giveaways / Q&A, leaderboards, counters, clocks and timers, stream stats, audio-reactive sigil and visualizer, info panels, ambience) | ✅ / 🟢 | Drawn natively and pushed as video frames; no browser source. The test adds every widget, feeds it chat, events and commands, and checks it renders |
+| Widget hotkeys and chat commands (`!vote`, `!join`, `!q`, counter keywords, `!win` / `!loss`) | ✅ commands · 🟢 hotkeys | |
+| 8 gothic overlay packs | 🟢 | Nocturne, Crimson Cathedral, Velvet Requiem, Bone & Ash, Blood Moon, Absinthe, Gilded Crypt, Ravenwing |
 | Media library: folders, search, filter, tags, import, drag-and-drop, starter assets | 🟢 | |
-| Twitch: OAuth device flow, stream key, title/category, IRC chat, EventSub alerts, moderation | 🔑 | Needs a free Twitch Client ID, pasted in Settings → Advanced → Developer credentials ([API-INTEGRATIONS](docs/API-INTEGRATIONS.md)). Not exercised against live Twitch here |
+| Twitch: OAuth device flow, stream key, title/category, IRC chat, EventSub alerts, moderation | 🔑 | Needs a free Twitch Client ID (Tools → Developer Credentials; see [API-INTEGRATIONS](docs/API-INTEGRATIONS.md)). Not exercised against live Twitch here |
 | YouTube: OAuth PKCE, broadcast creation and binding, title/description, chat, Super Chat/membership alerts, moderation | 🔑 | Needs a Google OAuth client. Not exercised against live YouTube here |
 | Kick, TikTok LIVE, Facebook, Instagram, X, Trovo, custom RTMP/RTMPS/SRT | 🚧 | Stream URL + key (what these platforms allow third-party apps to use) |
 | Unified chat filters (blocked words, flood, repeats, caps) | ✅ | |
 | Global hotkeys with conflict detection | 🟢 | Global (system-wide) on Windows via RegisterHotKey |
-| Virtual camera ("HeartCast Virtual Camera") | 🖥️ | Driver registered by the installer; reports a clear message if missing |
+| Virtual camera ("KovaLive Virtual Camera") | 🖥️ | Driver registered by the installer; reports a clear message if missing |
 | Plugins: libobs modules + app plugin API with permissions, SHA-256 and Authenticode checks | 🟢 | Plugins run in-process. Permissions limit the API but are **not** a sandbox |
 | Secure token / stream-key storage (Windows DPAPI) | 🟢 | Keys never touch config files or exports |
 | Updater: HTTPS feed, SHA-256 + Authenticode check, rollback copy | 🟢 | Refuses unsigned installers on Windows (see BUILD docs on signing) |
 | Crash handling: minidumps, recovery notice, atomic saves, corrupt-config fallback | ✅ / 🟢 | |
-| Scene *folders*, Kick/Facebook chat, music-now-playing and media-request widgets, NDI, browser sources, translations | ⏳ | NDI/browser can be added as libobs plugins |
+| Scene *folders*, Kick/Facebook chat, media-request widget, NDI, browser sources, translations | ⏳ | NDI/browser can be added as libobs plugins |
 
-**What was actually tested:** every push runs automated tests on both Windows and Linux.
-On **Windows** (GitHub's Windows Server 2025 image, Direct3D 11 on Microsoft's software GPU) the packaged
-build passes the engine test under full page-heap checking: libobs startup and plugins, starter scenes,
-scene save/load, recording, pause/resume, replay buffer, error reporting, virtual-camera detection and
-clean shutdown. On **Linux** the same engine also streams one shared encode to **two RTMP servers at once**,
-and both receive H.264 + AAC. Not yet exercised: real GPU encoders, webcams, game capture, global hotkeys,
-DPAPI key storage on a real desktop, the installer UI, and live Twitch/YouTube accounts.
-**Known issue:** VST 2 audio plugins (obs-vst) don't load in the Windows build yet.
+**What was actually tested:** every push runs automated tests on Windows and Linux. On **Windows**
+(GitHub's Windows Server 2025 image, Direct3D 11 on Microsoft's software GPU) the packaged build
+passes the engine test under full page-heap checking: libobs startup and plugins, both VST hosts
+loading, starter scenes, scene save/load, recording, pause/resume, replay buffer, all stingers and
+wipes, all widgets, error reporting, virtual-camera detection and clean shutdown. On **Linux** the
+same engine also streams one shared encode to **two RTMP servers at once**, and both receive
+H.264 + AAC. Not yet exercised: real GPU encoders, webcams, game capture, real VST plugins and
+their editors, global hotkeys, DPAPI key storage on a real desktop, the installer UI, and live
+Twitch/YouTube accounts.
 Builds are **not code-signed** until you add Azure Artifact Signing (see BUILD docs).
 
 ## Screenshots
 | | |
 |---|---|
-| ![Splash](docs/images/splash.png) | ![Wizard](docs/images/setup-wizard.png) |
-| ![Dashboard](docs/images/dashboard.png) | ![Widgets](docs/images/widgets.png) |
-| ![Tabbed panels](docs/images/studio-tabbed-panels.png) | ![Stream manager](docs/images/stream-manager.png) |
+| ![Widget gallery](docs/images/widget-gallery.png) | ![Settings](docs/images/settings.png) |
+| ![Splash](docs/images/splash.png) | ![Setup wizard](docs/images/setup-wizard.png) |
+| ![Transitions](docs/images/transitions.png) | ![Stingers](docs/images/stingers.jpg) |
 
 ## Documentation
-* [BUILD-INSTRUCTIONS](docs/BUILD-INSTRUCTIONS.md): Windows/CI/Linux builds, signing, renaming
-* [INSTALLATION-GUIDE](docs/INSTALLATION-GUIDE.md): installing, upgrading, uninstalling
 * [USER-GUIDE](docs/USER-GUIDE.md): using the studio
+* [INSTALLATION-GUIDE](docs/INSTALLATION-GUIDE.md): installing, upgrading (incl. from HeartCast Studio), uninstalling
+* [BUILD-INSTRUCTIONS](docs/BUILD-INSTRUCTIONS.md): Windows/CI/Linux builds, Qt and VST3 SDK versions, art generation, signing
 * [API-INTEGRATIONS](docs/API-INTEGRATIONS.md): platform credentials, scopes and limitations
 * [PLUGIN-API](docs/PLUGIN-API.md): writing plugins
 * [THIRD-PARTY-LICENSES](docs/THIRD-PARTY-LICENSES.md)
 
 ## Project layout
 ```
-src/app        theme, build info              src/engine     libobs wrapper, widget source
-src/core       settings, logging, crash, HW,  src/overlays   native widget/alert renderer
+src/app        theme, fonts, build info       src/engine     libobs wrapper, gothic wipes, widget source
+src/core       settings, logging, crash, HW,  src/overlays   widget catalog, renderer, live data
                hotkeys, paths                 src/platforms  Twitch, YouTube, hub, catalog
 src/auth       OAuth (device, PKCE), DPAPI    src/plugins    plugin API + manager
-src/ui         windows, docks, pages, wizard  src/updater    secure updater
-resources/     theme QSS, icons, packs, scenes, platform catalog, Windows .rc/.manifest/.ico
-installer/     Inno Setup script + wizard art  tools/  asset generator, Windows packager
-tests/         unit tests + libobs integration test (recording, replay, multistream)
+src/ui         main window, docks, settings,  src/updater    secure updater
+               gallery, wizard, icons, art
+third_party/   obs-vst3 (VST3 host, GPL-3.0-or-later)
+resources/     theme QSS, fonts, icons, stingers, packs, scenes, platform catalog, Windows .rc/.ico
+installer/     Inno Setup script + wizard art  tools/  art generator, asset script, Windows packager
+tests/         unit tests + libobs integration test (recording, replay, multistream, stingers, widgets)
 ```

@@ -3,7 +3,11 @@
   <qresource prefix="/">
     <file>icons/logo.svg</file>
     <file>icons/logo_256.png</file>
-    <file>theme/kawaii.qss</file>
+    <file>theme/nocturne.qss</file>
+    <file>fonts/Cinzel-Variable.ttf</file>
+    <file>fonts/CinzelDecorative-Bold.ttf</file>
+    <file>fonts/CinzelDecorative-Black.ttf</file>
+    <file>fonts/Inter-Variable.ttf</file>
     <file>overlays/packs.json</file>
     <file>scenes/starter_collection.json</file>
     <file>config/platforms.json</file>

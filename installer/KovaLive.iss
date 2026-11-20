@@ -1,32 +1,39 @@
 ; ============================================================================
-;  HeartCast Studio — Windows installer (Inno Setup 6.3+)
-;  Build:  iscc installer\HeartCast.iss /DSourceDir=<staged dist folder> /DAppVersion=0.1.0
+;  KovaLive! — Windows installer (Inno Setup 6.3+)
+;  Build:  iscc installer\KovaLive.iss /DSourceDir=<staged dist folder> /DAppVersion=0.1.0
 ;  The staged folder is produced by tools\package_windows.ps1:
-;     bin\64bit\HeartCastStudio.exe (+ Qt + libobs runtime)
+;     bin\64bit\KovaLive.exe (+ Qt + libobs runtime)
 ;     obs-plugins\64bit\*.dll, data\libobs, data\obs-plugins\..., docs\
 ; ============================================================================
 
+#if Ver < EncodeVer(6,6,0)
+  #error KovaLive's installer needs Inno Setup 6.6 or newer (dark wizard style).
+#endif
+
 #ifndef AppVersion
-  #define AppVersion "0.1.0"
+  #define AppVersion "0.2.0"
 #endif
 #ifndef SourceDir
-  #define SourceDir "..\dist\HeartCast"
+  #define SourceDir "..\dist\KovaLive"
 #endif
-#define AppName "HeartCast Studio"
-#define AppExe  "HeartCastStudio.exe"
-#define AppPublisher "HeartCast"
+#define AppName "KovaLive!"
+#define AppExe  "KovaLive.exe"
+#define AppPublisher "KovaLive"
+; The previous name of this app. Its installer used this AppId; we offer to remove that
+; install first (settings are carried over by the app itself from %APPDATA%\HeartCast).
+#define LegacyAppId "{6E3C1F8A-4B7D-4F2E-9C35-8A1D2B7E4C91}"
 
 [Setup]
 ; NEVER change AppId — it is how upgrades find the existing installation.
-AppId={{6E3C1F8A-4B7D-4F2E-9C35-8A1D2B7E4C91}
+AppId={{5CB7B6F2-5BE1-42EB-A52F-824C338FBEDA}
 AppName={#AppName}
 AppVersion={#AppVersion}
 AppVerName={#AppName} {#AppVersion}
 AppPublisher={#AppPublisher}
 VersionInfoVersion={#AppVersion}.0
 VersionInfoDescription={#AppName} Setup
-DefaultDirName={autopf}\{#AppName}
-DefaultGroupName={#AppName}
+DefaultDirName={autopf}\KovaLive
+DefaultGroupName=KovaLive
 UsePreviousAppDir=yes
 DisableProgramGroupPage=yes
 ArchitecturesAllowed=x64compatible
@@ -37,11 +44,12 @@ PrivilegesRequired=admin
 ; %LOCALAPPDATA%\Programs) or "Install for all users" (needs admin; enables the virtual camera).
 PrivilegesRequiredOverridesAllowed=dialog commandline
 OutputDir=..\dist
-OutputBaseFilename=HeartCastStudio-{#AppVersion}-Setup
+OutputBaseFilename=KovaLive-{#AppVersion}-Setup
 SetupIconFile=assets\setup.ico
 UninstallDisplayIcon={app}\bin\64bit\{#AppExe}
 UninstallDisplayName={#AppName}
-WizardStyle=modern
+; Dark wizard (Setup and Uninstall) — needs Inno Setup 6.6 or newer.
+WizardStyle=modern dark
 WizardSizePercent=110
 WizardImageFile=assets\wizard_side_100.bmp,assets\wizard_side_125.bmp,assets\wizard_side_150.bmp,assets\wizard_side_200.bmp
 WizardSmallImageFile=assets\wizard_small_100.bmp,assets\wizard_small_125.bmp,assets\wizard_small_150.bmp,assets\wizard_small_200.bmp
@@ -60,23 +68,23 @@ ExtraDiskSpaceRequired=104857600
 Name: "en"; MessagesFile: "compiler:Default.isl"
 
 [Messages]
-en.WelcomeLabel1=Welcome to your new streaming studio!
-en.WelcomeLabel2=This will install [name/ver] on your computer.%n%nHeartCast Studio is a cute, powerful live-streaming and recording studio. Close other streaming apps before continuing.
-en.ButtonNext=&Next ♡
-en.ButtonInstall=&Start Installation
-en.FinishedHeadingLabel=Your streaming studio is ready!
-en.FinishedLabel=[name] has been installed. Have a magical stream! ✦
-en.SelectDirLabel3=Choose where HeartCast Studio should be installed. Your settings and scenes are stored separately in %APPDATA%\HeartCast and are kept during upgrades.
-en.DiskSpaceWarning=HeartCast Studio needs at least %1 KB of free space, but only %2 KB is available on this drive.%n%nFree up some space or choose another drive.
+en.WelcomeLabel1=Enter the studio
+en.WelcomeLabel2=This will install [name/ver] on your computer.%n%nKovaLive! is a live-streaming and recording studio built on the OBS engine. Close other streaming apps before continuing.
+en.ButtonNext=&Next
+en.ButtonInstall=&Install
+en.FinishedHeadingLabel=The studio is ready
+en.FinishedLabel=[name] has been installed. The night is yours.
+en.SelectDirLabel3=Choose where KovaLive! should be installed. Your settings and scenes are stored separately in %APPDATA%\KovaLive and are kept during upgrades.
+en.DiskSpaceWarning=KovaLive! needs at least %1 KB of free space, but only %2 KB is available on this drive.%n%nFree up some space or choose another drive.
 
 [Types]
 Name: "full";   Description: "Everything (recommended)"
 Name: "custom"; Description: "Custom"; Flags: iscustom
 
 [Components]
-Name: "core";     Description: "HeartCast Studio (required)"; Types: full custom; Flags: fixed
+Name: "core";     Description: "KovaLive! (required)"; Types: full custom; Flags: fixed
 Name: "vcam";     Description: "Virtual Camera (use your stream as a webcam in Discord, Zoom, Teams…)"; Types: full
-Name: "packs";    Description: "Kawaii overlay packs, starter scenes & transitions"; Types: full
+Name: "packs";    Description: "Gothic overlay packs, starter scenes & stinger transitions"; Types: full
 Name: "docs";     Description: "Getting Started guide & documentation"; Types: full
 
 [Tasks]
@@ -86,9 +94,10 @@ Name: "startmenuicon"; Description: "Create a &Start menu shortcut"; GroupDescri
 [Files]
 Source: "{#SourceDir}\bin\*";         DestDir: "{app}\bin";         Components: core; Flags: ignoreversion recursesubdirs createallsubdirs
 Source: "{#SourceDir}\obs-plugins\*"; DestDir: "{app}\obs-plugins"; Components: core; Flags: ignoreversion recursesubdirs createallsubdirs
-Source: "{#SourceDir}\data\*";        DestDir: "{app}\data";        Components: core; Flags: ignoreversion recursesubdirs createallsubdirs; Excludes: "heartcast\overlays\*,heartcast\scenes\*"
-Source: "{#SourceDir}\data\heartcast\overlays\*"; DestDir: "{app}\data\heartcast\overlays"; Components: packs; Flags: ignoreversion recursesubdirs createallsubdirs skipifsourcedoesntexist
-Source: "{#SourceDir}\data\heartcast\scenes\*";   DestDir: "{app}\data\heartcast\scenes";   Components: packs; Flags: ignoreversion recursesubdirs createallsubdirs skipifsourcedoesntexist
+Source: "{#SourceDir}\data\*";        DestDir: "{app}\data";        Components: core; Flags: ignoreversion recursesubdirs createallsubdirs; Excludes: "kovalive\overlays\*,kovalive\scenes\*,kovalive\stingers\*"
+Source: "{#SourceDir}\data\kovalive\overlays\*"; DestDir: "{app}\data\kovalive\overlays"; Components: packs; Flags: ignoreversion recursesubdirs createallsubdirs skipifsourcedoesntexist
+Source: "{#SourceDir}\data\kovalive\scenes\*";   DestDir: "{app}\data\kovalive\scenes";   Components: packs; Flags: ignoreversion recursesubdirs createallsubdirs skipifsourcedoesntexist
+Source: "{#SourceDir}\data\kovalive\stingers\*"; DestDir: "{app}\data\kovalive\stingers"; Components: packs; Flags: ignoreversion recursesubdirs createallsubdirs skipifsourcedoesntexist
 Source: "{#SourceDir}\docs\*";        DestDir: "{app}\docs";        Components: docs; Flags: ignoreversion recursesubdirs createallsubdirs
 Source: "{#SourceDir}\THIRD-PARTY-LICENSES.md"; DestDir: "{app}"; Components: core; Flags: ignoreversion
 Source: "..\resources\LICENSE.txt";   DestDir: "{app}"; Components: core; Flags: ignoreversion
@@ -104,7 +113,7 @@ Filename: "{tmp}\vc_redist.x64.exe"; Parameters: "/install /quiet /norestart"; S
 ; Virtual camera: register the DirectShow camera filter (64- and 32-bit so 32-bit apps like some Zoom builds see it)
 Filename: "{sys}\regsvr32.exe"; Parameters: "/s ""{app}\data\obs-plugins\win-dshow\obs-virtualcam-module64.dll"""; Components: vcam; Check: IsAdminInstallMode; StatusMsg: "Registering the virtual camera…"; Flags: runhidden waituntilterminated skipifdoesntexist
 Filename: "{syswow64}\regsvr32.exe"; Parameters: "/s ""{app}\data\obs-plugins\win-dshow\obs-virtualcam-module32.dll"""; Components: vcam; Check: IsAdminInstallMode; Flags: runhidden waituntilterminated skipifdoesntexist
-Filename: "{app}\bin\64bit\{#AppExe}"; Description: "Launch HeartCast Studio ♡"; WorkingDir: "{app}\bin\64bit"; Flags: postinstall nowait skipifsilent
+Filename: "{app}\bin\64bit\{#AppExe}"; Description: "Launch KovaLive!"; WorkingDir: "{app}\bin\64bit"; Flags: postinstall nowait skipifsilent
 Filename: "{app}\docs\USER-GUIDE.html"; Description: "View the Getting Started guide"; Components: docs; Flags: postinstall shellexec skipifsilent unchecked skipifdoesntexist
 
 [UninstallRun]
@@ -118,11 +127,9 @@ Type: filesandordirs; Name: "{app}\data"
 
 [Code]
 const
-  ColPearl = $FCF9FF;   { Inno colours are BGR: #FFF9FC }
-  ColBaby  = $EBDCFF;   { #FFDCEB }
-  ColMint  = $E7F3D2;   { #D2F3E7 }
-  ColText  = $524851;   { #514852 }
-  ColRose  = $9D6FC9;   { #C96F9D }
+  { Nocturne heading colours. Inno colours are BGR. }
+  ColCrimson = $3F28C8;   { #C8283F }
+  ColGold    = $5A93B8;   { #B8935A }
 
 var
   DepsPage: TOutputMsgMemoWizardPage;
@@ -168,29 +175,21 @@ begin
                   '      Go back and choose "Install for all users", or install it from https://aka.ms/vs/17/release/vc_redist.x64.exe' + #13#10;
   if not IsAdminInstallMode then
     DepsReport := DepsReport + 'Virtual Camera   → needs "Install for all users"; skipped for a just-for-me install' + #13#10;
-  DepsReport := DepsReport + 'DirectX 11 graphics   → checked when HeartCast starts (update your GPU driver if it reports a problem)' + #13#10;
-  DepsReport := DepsReport + #13#10 + 'Your settings, scenes and stream keys live in %APPDATA%\HeartCast and are never removed by upgrades.';
+  DepsReport := DepsReport + 'DirectX 11 graphics   → checked when KovaLive starts (update your GPU driver if it reports a problem)' + #13#10;
+  DepsReport := DepsReport + #13#10 + 'Your settings, scenes and stream keys live in %APPDATA%\KovaLive and are never removed by upgrades.';
 end;
 
 procedure InitializeWizard;
 begin
-  { Pastel theme for the wizard chrome }
-  WizardForm.Color := ColBaby;
-  WizardForm.MainPanel.Color := ColPearl;
-  WizardForm.InnerPage.Color := ColPearl;
-  WizardForm.WelcomePage.Color := ColPearl;
-  WizardForm.FinishedPage.Color := ColPearl;
-  WizardForm.WelcomeLabel1.Font.Color := ColRose;
-  WizardForm.FinishedHeadingLabel.Font.Color := ColRose;
-  WizardForm.PageNameLabel.Font.Color := ColRose;
-  WizardForm.PageDescriptionLabel.Font.Color := ColText;
-  WizardForm.WelcomeLabel2.Font.Color := ColText;
-  WizardForm.FinishedLabel.Font.Color := ColText;
+  { WizardStyle=modern dark gives every control a dark theme; we only tint the headings. }
+  WizardForm.WelcomeLabel1.Font.Color := ColCrimson;
+  WizardForm.FinishedHeadingLabel.Font.Color := ColCrimson;
+  WizardForm.PageNameLabel.Font.Color := ColGold;
   WizardForm.ProgressGauge.Height := ScaleY(18);
 
   BuildDependencyReport;
   DepsPage := CreateOutputMsgMemoPage(wpSelectTasks,
-    'Checking your system ✦', 'HeartCast Studio verified what it needs.',
+    'Checking your system', 'KovaLive! verified what it needs.',
     'Here is what we found. Missing components are installed for you.', DepsReport);
 end;
 
@@ -201,22 +200,48 @@ begin
   if CurPageID = DepsPage.ID then begin
     GetWindowsVersionEx(WinVer);
     if WinVer.Build < 17763 then begin
-      MsgBox('HeartCast Studio needs Windows 10 version 1809 or newer.', mbCriticalError, MB_OK);
+      MsgBox('KovaLive! needs Windows 10 version 1809 or newer.', mbCriticalError, MB_OK);
       Result := False;
     end else if (not IsAdminInstallMode) and (not VCRedistInstalled) then begin
       Result := MsgBox('The Microsoft Visual C++ runtime is missing, and installing it needs administrator rights.' + #13#10#13#10 +
-                       'HeartCast will not start without it. Continue anyway and install the runtime yourself afterwards?',
+                       'KovaLive will not start without it. Continue anyway and install the runtime yourself afterwards?',
                        mbConfirmation, MB_YESNO) = IDYES;
     end;
+  end;
+end;
+
+{ ---- previous name: HeartCast Studio (different AppId) ---- }
+function LegacyUninstallString: String;
+var S: String;
+begin
+  Result := '';
+  if RegQueryStringValue(HKLM64, 'Software\Microsoft\Windows\CurrentVersion\Uninstall\{#LegacyAppId}_is1', 'UninstallString', S) or
+     RegQueryStringValue(HKCU, 'Software\Microsoft\Windows\CurrentVersion\Uninstall\{#LegacyAppId}_is1', 'UninstallString', S) then
+    Result := RemoveQuotes(S);
+end;
+
+function PrepareToInstall(var NeedsRestart: Boolean): String;
+var Uninst: String; Code: Integer;
+begin
+  Result := '';
+  Uninst := LegacyUninstallString;
+  if Uninst = '' then exit;
+  if WizardSilent or (MsgBox('HeartCast Studio (the previous name of KovaLive!) is installed on this PC.' + #13#10#13#10 +
+                             'Remove it now? Your scenes, settings and saved stream keys are kept, and KovaLive! picks them up automatically.',
+                             mbConfirmation, MB_YESNO) = IDYES) then
+  begin
+    { /SUPPRESSMSGBOXES answers its "also delete settings?" question with the default: No. }
+    if not ShellExec('', Uninst, '/VERYSILENT /SUPPRESSMSGBOXES /NORESTART', '', SW_HIDE, ewWaitUntilTerminated, Code) or (Code <> 0) then
+      Log('HeartCast Studio uninstall did not complete (code ' + IntToStr(Code) + '); continuing.');
   end;
 end;
 
 procedure CurUninstallStepChanged(CurUninstallStep: TUninstallStep);
 begin
   if CurUninstallStep = usPostUninstall then begin
-    if MsgBox('Also remove your HeartCast settings, scenes, logs and saved stream keys?'#13#10#13#10 +
+    if MsgBox('Also remove your KovaLive settings, scenes, logs and saved stream keys?'#13#10#13#10 +
               '(Choose No to keep them for a future reinstall. Your recordings are never deleted.)',
               mbConfirmation, MB_YESNO or MB_DEFBUTTON2) = IDYES then
-      DelTree(ExpandConstant('{userappdata}\HeartCast'), True, True, True);
+      DelTree(ExpandConstant('{userappdata}\KovaLive'), True, True, True);
   end;
 end;
